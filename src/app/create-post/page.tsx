@@ -96,65 +96,84 @@ export default function CreatePostPage() {
   }
 
   return (
-    <section className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-8">
-      <h1 className="text-2xl font-semibold">Crear publicacion</h1>
+    <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+          Marketplace
+        </p>
+        <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">
+          Crear publicacion
+        </h1>
+        <p className="mt-2 text-sm text-slate-600">
+          Completa los datos del producto para publicarlo en el feed principal.
+        </p>
+      </div>
 
-      <form className="flex flex-col gap-4" onSubmit={handleSubmit}>
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">Titulo</span>
+      <form
+        className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+        onSubmit={handleSubmit}
+      >
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-slate-700">Titulo</span>
           <input
-            className="rounded border px-3 py-2"
+            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
             value={form.title}
             onChange={(event) =>
               setForm((previous) => ({ ...previous, title: event.target.value }))
             }
+            placeholder="Ej: iPhone 13 128GB"
             required
           />
         </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">Descripcion</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-slate-700">Descripcion</span>
           <textarea
-            className="min-h-32 rounded border px-3 py-2"
+            className="min-h-32 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
             value={form.description}
             onChange={(event) =>
               setForm((previous) => ({ ...previous, description: event.target.value }))
             }
+            placeholder="Describe el estado, uso y detalles importantes..."
             required
           />
         </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">Precio</span>
-          <input
-            className="rounded border px-3 py-2"
-            type="number"
-            min="0"
-            step="0.01"
-            value={form.price}
-            onChange={(event) =>
-              setForm((previous) => ({ ...previous, price: event.target.value }))
-            }
-            required
-          />
-        </label>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-slate-700">Precio</span>
+            <input
+              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
+              type="number"
+              min="0"
+              step="0.01"
+              value={form.price}
+              onChange={(event) =>
+                setForm((previous) => ({ ...previous, price: event.target.value }))
+              }
+              placeholder="0.00"
+              required
+            />
+          </label>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">Categoria</span>
-          <input
-            className="rounded border px-3 py-2"
-            value={form.category}
-            onChange={(event) =>
-              setForm((previous) => ({ ...previous, category: event.target.value }))
-            }
-            required
-          />
-        </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-slate-700">Categoria</span>
+            <input
+              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
+              value={form.category}
+              onChange={(event) =>
+                setForm((previous) => ({ ...previous, category: event.target.value }))
+              }
+              placeholder="Ej: Tecnologia"
+              required
+            />
+          </label>
+        </div>
 
-        <label className="flex flex-col gap-1">
-          <span className="text-sm font-medium">Imagen</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-slate-700">Imagen</span>
           <input
-            className="rounded border px-3 py-2"
+            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-700"
             type="file"
             accept="image/*"
             onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
@@ -162,10 +181,14 @@ export default function CreatePostPage() {
           />
         </label>
 
-        {errorMsg ? <p className="text-sm text-red-600">{errorMsg}</p> : null}
+        {errorMsg ? (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {errorMsg}
+          </p>
+        ) : null}
 
         <button
-          className="rounded bg-black px-4 py-2 text-white disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
           type="submit"
           disabled={submitting}
         >

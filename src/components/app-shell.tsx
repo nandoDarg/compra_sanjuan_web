@@ -28,8 +28,11 @@ export default function AppShell({
     return (
       <>
         <Navbar />
-        <main className="flex flex-1 items-center justify-center">
-          <p className="text-sm text-gray-500">Cargando sesion...</p>
+        <main className="mx-auto flex w-full max-w-7xl flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-slate-200 bg-white px-6 py-10 text-center shadow-sm">
+            <div className="mx-auto mb-3 h-10 w-10 animate-pulse rounded-full bg-slate-200" />
+            <p className="text-sm text-slate-600">Cargando sesion...</p>
+          </div>
         </main>
       </>
     )
@@ -38,7 +41,9 @@ export default function AppShell({
   return (
     <>
       <Navbar />
-      <main className="flex-1">{children}</main>
+      <main className="flex-1">
+        <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">{children}</div>
+      </main>
     </>
   )
 }
