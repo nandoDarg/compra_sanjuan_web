@@ -1,9 +1,12 @@
+import type { ReactNode } from 'react'
+
 type PostCardProps = {
   title: string
   description: string
   category: string
   price: number
   imageUrl: string | null
+  actions?: ReactNode
 }
 
 export default function PostCard({
@@ -12,6 +15,7 @@ export default function PostCard({
   category,
   price,
   imageUrl,
+  actions,
 }: PostCardProps) {
   return (
     <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
@@ -22,7 +26,7 @@ export default function PostCard({
             alt={title}
             className="h-56 w-full object-cover transition duration-500 group-hover:scale-105"
           />
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/25 to-transparent" />
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/25 to-transparent" />
         </div>
       ) : (
         <div className="flex h-56 items-center justify-center bg-slate-100 text-sm text-slate-500">
@@ -53,6 +57,8 @@ export default function PostCard({
           </span>
           <span className="text-xs text-slate-400">Publicado hoy</span>
         </div>
+
+        {actions ? <div className="mt-3 flex flex-wrap gap-2">{actions}</div> : null}
       </div>
     </article>
   )
