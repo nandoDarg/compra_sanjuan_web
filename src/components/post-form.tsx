@@ -8,6 +8,7 @@ type PostFormValues = {
   description: string
   price: string
   category: string
+  whatsappNumber: string
 }
 
 export type PostFormSubmitData = {
@@ -15,6 +16,7 @@ export type PostFormSubmitData = {
   description: string
   price: number
   category: string
+  whatsappNumber: string
   imageFile: File | null
 }
 
@@ -28,6 +30,7 @@ type PostFormProps = {
     description: string
     price: number
     category: string
+    whatsappNumber: string | null
     imageUrl: string | null
   }
   cancelHref?: string
@@ -39,6 +42,11 @@ const emptyValues: PostFormValues = {
   description: '',
   price: '',
   category: '',
+  whatsappNumber: '',
+}
+
+function normalizeWhatsAppNumber(value: string) {
+  return value.replace(/\D+/g, '')
 }
 
 export default function PostForm({
@@ -60,6 +68,7 @@ export default function PostForm({
       description: initialValues.description,
       price: String(initialValues.price),
       category: initialValues.category,
+      whatsappNumber: initialValues.whatsappNumber ?? '',
     }
   })
 
@@ -86,6 +95,13 @@ export default function PostForm({
       return
     }
 
+    const normalizedWhatsapp = normalizeWhatsAppNumber(form.whatsappNumber)
+
+    if (!normalizedWhatsapp) {
+      setErrorMsg('Ingresa un numero de WhatsApp valido.')
+      return
+    }
+
     setSubmitting(true)
 
     const result = await onSubmit({
@@ -93,6 +109,7 @@ export default function PostForm({
       description: form.description.trim(),
       price: parsedPrice,
       category: form.category.trim(),
+      whatsappNumber: normalizedWhatsapp,
       imageFile,
     })
 
@@ -175,6 +192,23 @@ export default function PostForm({
             />
           </label>
         </div>
+
+        <label className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-slate-700">WhatsApp de contacto</span>
+          <input
+            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
+            type="tel"
+            value={form.whatsappNumber}
+            onChange={(event) =>
+              setForm((previous) => ({ ...previous, whatsappNumber: event.target.value }))
+            }
+            placeholder="Ej: 5492645551234"
+            required
+          />
+          <span className="text-xs text-slate-500">
+            Incluye codigo de pais y area. Solo se guardan numeros.
+          </span>
+        </label>
 
         {currentImageUrl ? (
           <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">

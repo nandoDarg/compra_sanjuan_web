@@ -15,6 +15,7 @@ type Post = {
   description: string
   price: number
   category: string
+  whatsapp_number: string | null
   image_url: string | null
 }
 
@@ -40,7 +41,7 @@ export default function EditPostPage() {
 
       const { data, error } = await supabase
         .from('posts')
-        .select('id,user_id,title,description,price,category,image_url')
+        .select('id,user_id,title,description,price,category,whatsapp_number,image_url')
         .eq('id', postId)
         .eq('user_id', user.id)
         .single()
@@ -97,6 +98,7 @@ export default function EditPostPage() {
         description: formData.description,
         price: formData.price,
         category: formData.category,
+        whatsapp_number: formData.whatsappNumber,
         image_url: imageUrlToSave,
       })
       .eq('id', post.id)
@@ -146,6 +148,7 @@ export default function EditPostPage() {
         description: post.description,
         price: Number(post.price),
         category: post.category,
+        whatsappNumber: post.whatsapp_number,
         imageUrl: post.image_url,
       }}
       onSubmit={handleSubmit}

@@ -14,9 +14,13 @@ create table if not exists public.posts (
 	description text not null,
 	price numeric(12,2) not null check (price >= 0),
 	category text not null,
+	whatsapp_number text,
 	image_url text,
 	created_at timestamptz not null default timezone('utc', now())
 );
+
+alter table public.posts
+add column if not exists whatsapp_number text;
 
 create index if not exists posts_created_at_idx on public.posts (created_at desc);
 create index if not exists posts_user_id_idx on public.posts (user_id);

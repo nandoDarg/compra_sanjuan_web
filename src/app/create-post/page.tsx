@@ -46,6 +46,7 @@ export default function CreatePostPage() {
       description: formData.description,
       price: formData.price,
       category: formData.category,
+      whatsapp_number: formData.whatsappNumber,
       image_url: publicUrlData.publicUrl,
     })
 
