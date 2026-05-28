@@ -14,7 +14,7 @@ export default function Navbar() {
 
   const logout = async () => {
     await supabase.auth.signOut()
-    router.push('/login')
+    router.push('/')
   }
 
   return (
@@ -37,6 +37,12 @@ export default function Navbar() {
         ) : !user ? (
           <>
             <Link
+              href="/"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              Explorar
+            </Link>
+            <Link
               href="/login"
               className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
             >
@@ -52,20 +58,17 @@ export default function Navbar() {
         ) : (
           <>
             <Link
-              href="/my-posts"
-              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
-            >
-              Mis publicaciones
-            </Link>
-            <Link
               href="/create-post"
               className="rounded-lg bg-slate-900 px-3 py-2 text-sm font-medium text-white transition hover:bg-slate-700"
             >
               Publicar
             </Link>
-            <span className="hidden max-w-40 truncate text-sm text-slate-600 sm:block">
-              {user.email}
-            </span>
+            <Link
+              href="/my-posts"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
+            >
+              Mis publicaciones
+            </Link>
 
             <button
               onClick={logout}

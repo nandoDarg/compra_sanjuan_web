@@ -5,7 +5,16 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from './auth-provider'
 import Navbar from './navbar'
 
-const PUBLIC_ROUTES = ['/login', '/register']
+const PUBLIC_ROUTES = ['/', '/login', '/register']
+
+function isPublicPath(pathname: string) {
+  if (PUBLIC_ROUTES.includes(pathname)) {
+    return true
+  }
+
+  // Public detail pages: /post/[id]
+  return pathname.startsWith('/post/')
+}
 
 export default function AppShell({
   children,
@@ -16,7 +25,7 @@ export default function AppShell({
   const pathname = usePathname()
   const router = useRouter()
 
-  const isPublicRoute = PUBLIC_ROUTES.includes(pathname)
+  const isPublicRoute = isPublicPath(pathname)
 
   useEffect(() => {
     if (!loading && !user && !isPublicRoute) {
