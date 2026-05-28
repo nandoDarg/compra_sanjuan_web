@@ -197,11 +197,14 @@ export default function Home() {
           {posts.map((post) => (
             <PostCard
               key={post.id}
+              id={post.id}
               title={post.title}
               description={post.description}
               category={post.category}
               price={post.price}
               imageUrl={post.image_url}
+              href={`/post/${post.id}`}
+              publishedAt={post.created_at}
             />
           ))}
         </div>

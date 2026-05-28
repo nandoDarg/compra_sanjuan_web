@@ -1,24 +1,49 @@
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 
 type PostCardProps = {
+  id?: string
   title: string
   description: string
   category: string
   price: number
   imageUrl: string | null
+  href?: string
+  publishedAt?: string
   actions?: ReactNode
 }
 
+function formatPublishedAt(value?: string) {
+  if (!value) {
+    return 'Publicado recientemente'
+  }
+
+  const date = new Date(value)
+
+  if (Number.isNaN(date.getTime())) {
+    return 'Publicado recientemente'
+  }
+
+  return new Intl.DateTimeFormat('es-AR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(date)
+}
+
 export default function PostCard({
+  id,
   title,
   description,
   category,
   price,
   imageUrl,
+  href,
+  publishedAt,
   actions,
 }: PostCardProps) {
-  return (
-    <article className="group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl">
+  const cardContent = (
+    <>
       {imageUrl ? (
         <div className="relative overflow-hidden">
           <img
@@ -55,11 +80,26 @@ export default function PostCard({
             <span className="h-2 w-2 rounded-full bg-slate-400" />
             San Juan, AR
           </span>
-          <span className="text-xs text-slate-400">Publicado hoy</span>
+          <span className="text-xs text-slate-400">{formatPublishedAt(publishedAt)}</span>
         </div>
-
-        {actions ? <div className="mt-3 flex flex-wrap gap-2">{actions}</div> : null}
       </div>
+    </>
+  )
+
+  const containerClassName =
+    'group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl'
+
+  return (
+    <article className={containerClassName} data-post-id={id}>
+      {href ? (
+        <Link href={href} className="flex flex-1 flex-col" aria-label={`Ver detalle de ${title}`}>
+          {cardContent}
+        </Link>
+      ) : (
+        cardContent
+      )}
+
+      {actions ? <div className="flex flex-wrap gap-2 px-4 pb-4 sm:px-5 sm:pb-5">{actions}</div> : null}
     </article>
   )
 }
