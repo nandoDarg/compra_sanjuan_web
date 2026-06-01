@@ -21,6 +21,10 @@ type Post = {
   created_at: string
 }
 
+type PostImage = {
+  image_url: string
+}
+
 function sanitizeWhatsAppNumber(value: string | null) {
   if (!value) {
     return ''
@@ -50,6 +54,8 @@ export default function PostDetailPage() {
 
   const [post, setPost] = useState<Post | null>(null)
   const [relatedPosts, setRelatedPosts] = useState<Post[]>([])
+  const [postImages, setPostImages] = useState<string[]>([])
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [shareFeedback, setShareFeedback] = useState<string | null>(null)
@@ -74,6 +80,20 @@ export default function PostDetailPage() {
       }
 
       setPost(data)
+
+      const { data: extraImagesData } = await supabase
+        .from('post_images')
+        .select('image_url')
+        .eq('post_id', data.id)
+        .order('position', { ascending: true })
+
+      const mergedImages = [
+        data.image_url,
+        ...((extraImagesData as PostImage[] | null)?.map((item) => item.image_url) ?? []),
+      ].filter((value): value is string => Boolean(value))
+
+      setPostImages(Array.from(new Set(mergedImages)))
+      setSelectedImageIndex(0)
 
       const { data: relatedData } = await supabase
         .from('posts')
@@ -210,9 +230,9 @@ export default function PostDetailPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_1fr]">
         <article className="thsj-card overflow-hidden">
-          {post.image_url ? (
+          {postImages.length > 0 ? (
             <img
-              src={post.image_url}
+              src={postImages[selectedImageIndex]}
               alt={post.title}
               className="h-72 w-full object-cover sm:h-105 lg:h-130"
             />
@@ -221,6 +241,29 @@ export default function PostDetailPage() {
               Sin imagen disponible
             </div>
           )}
+
+          {postImages.length > 1 ? (
+            <div className="grid grid-cols-4 gap-2 border-t border-(--line) bg-(--background-muted) p-3 sm:grid-cols-6">
+              {postImages.map((imageUrl, index) => (
+                <button
+                  key={`${imageUrl}-${index}`}
+                  type="button"
+                  onClick={() => setSelectedImageIndex(index)}
+                  className={`overflow-hidden rounded-lg border transition ${
+                    selectedImageIndex === index
+                      ? 'border-(--brand-primary) ring-1 ring-(--brand-primary)'
+                      : 'border-(--line) hover:border-(--line-strong)'
+                  }`}
+                >
+                  <img
+                    src={imageUrl}
+                    alt={`${post.title} ${index + 1}`}
+                    className="h-14 w-full object-cover sm:h-16"
+                  />
+                </button>
+              ))}
+            </div>
+          ) : null}
         </article>
 
         <aside className="thsj-panel p-5 sm:p-6">

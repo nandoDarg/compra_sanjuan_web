@@ -10,8 +10,8 @@ export default function CreatePostPage() {
   const router = useRouter()
 
   const handleSubmit = async (formData: PostFormSubmitData) => {
-    if (!formData.imageFile) {
-      return { error: 'Selecciona una imagen para la publicacion.' }
+    if (formData.imageFiles.length === 0) {
+      return { error: 'Selecciona al menos una imagen para la publicacion.' }
     }
 
     const {
@@ -23,42 +23,78 @@ export default function CreatePostPage() {
       return { error: 'No hay una sesion activa.' }
     }
 
-    const safeFileName = formData.imageFile.name.replace(/\s+/g, '-').toLowerCase()
-    const filePath = `${user.id}/${Date.now()}-${safeFileName}`
+    const uploadedImages: Array<{ filePath: string; publicUrl: string }> = []
 
-    const { error: uploadError } = await supabase.storage
-      .from('post-images')
-      .upload(filePath, formData.imageFile, {
-        cacheControl: '3600',
-        upsert: false,
-      })
+    for (const imageFile of formData.imageFiles) {
+      const safeFileName = imageFile.name.replace(/\s+/g, '-').toLowerCase()
+      const filePath = `${user.id}/${Date.now()}-${safeFileName}`
 
-    if (uploadError) {
-      return { error: uploadError.message }
+      const { error: uploadError } = await supabase.storage
+        .from('post-images')
+        .upload(filePath, imageFile, {
+          cacheControl: '3600',
+          upsert: false,
+        })
+
+      if (uploadError) {
+        return { error: uploadError.message }
+      }
+
+      const { data: publicUrlData } = supabase.storage
+        .from('post-images')
+        .getPublicUrl(filePath)
+
+      uploadedImages.push({ filePath, publicUrl: publicUrlData.publicUrl })
     }
 
-    const { data: publicUrlData } = supabase.storage
-      .from('post-images')
-      .getPublicUrl(filePath)
+    const [primaryImage, ...extraImages] = uploadedImages
 
-    const { error: insertError } = await supabase.from('posts').insert({
-      user_id: user.id,
-      title: formData.title,
-      description: formData.description,
-      price: formData.price,
-      category: formData.category,
-      whatsapp_number: formData.whatsappNumber,
-      image_url: publicUrlData.publicUrl,
-    })
+    const { data: insertedPost, error: insertError } = await supabase
+      .from('posts')
+      .insert({
+        user_id: user.id,
+        title: formData.title,
+        description: formData.description,
+        price: formData.price,
+        category: formData.category,
+        whatsapp_number: formData.whatsappNumber,
+        image_url: primaryImage.publicUrl,
+      })
+      .select('id')
+      .single()
 
     if (insertError) {
       return { error: insertError.message }
     }
 
+    if (extraImages.length > 0) {
+      const { error: imageRelationError } = await supabase.from('post_images').insert(
+        extraImages.map((image, index) => ({
+          post_id: insertedPost.id,
+          image_url: image.publicUrl,
+          position: index + 1,
+        }))
+      )
+
+      if (imageRelationError) {
+        await supabase
+          .from('posts')
+          .delete()
+          .eq('id', insertedPost.id)
+          .eq('user_id', user.id)
+
+        await supabase.storage.from('post-images').remove(uploadedImages.map((image) => image.filePath))
+
+        return {
+          error: 'No se pudo guardar la galeria de imagenes. Revisa la migracion de post_images e intenta nuevamente.',
+        }
+      }
+    }
+
     trackEvent(ANALYTICS_EVENTS.POST_CREATED, {
       category: formData.category,
       price: Number(formData.price),
-      has_image: Boolean(formData.imageFile),
+      has_image: formData.imageFiles.length > 0,
     })
 
     router.push('/')

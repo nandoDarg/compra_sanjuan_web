@@ -19,6 +19,10 @@ type Post = {
   image_url: string | null
 }
 
+type PostImage = {
+  image_url: string
+}
+
 export default function EditPostPage() {
   const params = useParams<{ id: string }>()
   const postId = params.id
@@ -65,29 +69,64 @@ export default function EditPostPage() {
     }
 
     let imageUrlToSave = post.image_url
+    let newExtraImageUrls: string[] = []
 
-    if (formData.imageFile) {
-      const safeFileName = formData.imageFile.name.replace(/\s+/g, '-').toLowerCase()
-      const newPath = `${user.id}/${Date.now()}-${safeFileName}`
+    if (formData.imageFiles.length > 0) {
+      const uploadedImages: Array<{ filePath: string; publicUrl: string }> = []
 
-      const { error: uploadError } = await supabase.storage
-        .from('post-images')
-        .upload(newPath, formData.imageFile, {
-          cacheControl: '3600',
-          upsert: false,
-        })
+      for (const imageFile of formData.imageFiles) {
+        const safeFileName = imageFile.name.replace(/\s+/g, '-').toLowerCase()
+        const newPath = `${user.id}/${Date.now()}-${safeFileName}`
 
-      if (uploadError) {
-        return { error: uploadError.message }
+        const { error: uploadError } = await supabase.storage
+          .from('post-images')
+          .upload(newPath, imageFile, {
+            cacheControl: '3600',
+            upsert: false,
+          })
+
+        if (uploadError) {
+          return { error: uploadError.message }
+        }
+
+        const { data: publicUrlData } = supabase.storage.from('post-images').getPublicUrl(newPath)
+        uploadedImages.push({ filePath: newPath, publicUrl: publicUrlData.publicUrl })
       }
 
-      const { data: publicUrlData } = supabase.storage.from('post-images').getPublicUrl(newPath)
-      imageUrlToSave = publicUrlData.publicUrl
+      const [primaryImage, ...extraImages] = uploadedImages
+      imageUrlToSave = primaryImage.publicUrl
+      newExtraImageUrls = extraImages.map((image) => image.publicUrl)
 
-      const previousImagePath = getPostImagePathFromPublicUrl(post.image_url)
+      const { data: existingExtraImages } = await supabase
+        .from('post_images')
+        .select('image_url')
+        .eq('post_id', post.id)
 
-      if (previousImagePath) {
-        await supabase.storage.from('post-images').remove([previousImagePath])
+      const existingUrls = (existingExtraImages as PostImage[] | null)?.map((item) => item.image_url) ?? []
+
+      await supabase.from('post_images').delete().eq('post_id', post.id)
+
+      if (newExtraImageUrls.length > 0) {
+        const { error: imageRelationError } = await supabase.from('post_images').insert(
+          newExtraImageUrls.map((imageUrl, index) => ({
+            post_id: post.id,
+            image_url: imageUrl,
+            position: index + 1,
+          }))
+        )
+
+        if (imageRelationError) {
+          await supabase.storage.from('post-images').remove(uploadedImages.map((image) => image.filePath))
+          return { error: 'Fallo el guardado de imagenes extra. Revisa la migracion de post_images.' }
+        }
+      }
+
+      const previousPaths = [post.image_url, ...existingUrls]
+        .map((url) => getPostImagePathFromPublicUrl(url))
+        .filter((path): path is string => Boolean(path))
+
+      if (previousPaths.length > 0) {
+        await supabase.storage.from('post-images').remove(previousPaths)
       }
     }
 
@@ -116,8 +155,8 @@ export default function EditPostPage() {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-1 items-center justify-center py-12">
         <div className="thsj-panel px-6 py-8 text-center">
-          <div className="mx-auto mb-3 h-10 w-10 animate-pulse rounded-full bg-[var(--background-muted)]" />
-          <p className="text-sm text-[var(--foreground-muted)]">Cargando publicacion...</p>
+          <div className="mx-auto mb-3 h-10 w-10 animate-pulse rounded-full bg-(--background-muted)" />
+          <p className="text-sm text-(--foreground-muted)">Cargando publicacion...</p>
         </div>
       </div>
     )

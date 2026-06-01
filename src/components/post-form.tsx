@@ -1,13 +1,13 @@
 'use client'
 
 import Link from 'next/link'
-import { FormEvent, useMemo, useState } from 'react'
+import { FormEvent, useMemo, useRef, useState } from 'react'
+import { OTHER_CATEGORY_VALUE, PREDEFINED_POST_CATEGORIES } from '@/lib/post-categories'
 
 type PostFormValues = {
   title: string
   description: string
   price: string
-  category: string
   whatsappNumber: string
 }
 
@@ -17,7 +17,7 @@ export type PostFormSubmitData = {
   price: number
   category: string
   whatsappNumber: string
-  imageFile: File | null
+  imageFiles: File[]
 }
 
 type PostFormProps = {
@@ -41,7 +41,6 @@ const emptyValues: PostFormValues = {
   title: '',
   description: '',
   price: '',
-  category: '',
   whatsappNumber: '',
 }
 
@@ -58,6 +57,9 @@ export default function PostForm({
   cancelHref = '/',
   onSubmit,
 }: PostFormProps) {
+  const isPredefinedCategory = (value: string) =>
+    PREDEFINED_POST_CATEGORIES.includes(value as (typeof PREDEFINED_POST_CATEGORIES)[number])
+
   const [form, setForm] = useState<PostFormValues>(() => {
     if (!initialValues) {
       return emptyValues
@@ -67,21 +69,70 @@ export default function PostForm({
       title: initialValues.title,
       description: initialValues.description,
       price: String(initialValues.price),
-      category: initialValues.category,
       whatsappNumber: initialValues.whatsappNumber ?? '',
     }
   })
 
-  const [imageFile, setImageFile] = useState<File | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState(() => {
+    if (!initialValues?.category) {
+      return ''
+    }
+
+    return isPredefinedCategory(initialValues.category)
+      ? initialValues.category
+      : OTHER_CATEGORY_VALUE
+  })
+  const [customCategory, setCustomCategory] = useState(() => {
+    if (!initialValues?.category || isPredefinedCategory(initialValues.category)) {
+      return ''
+    }
+
+    return initialValues.category
+  })
+
+  const [imageFiles, setImageFiles] = useState<File[]>([])
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
 
   const currentImageUrl = useMemo(() => initialValues?.imageUrl ?? null, [initialValues])
-  const needsImage = mode === 'create' && !imageFile
+  const needsImage = mode === 'create' && imageFiles.length === 0
+
+  const addImageFiles = (incoming: FileList | null) => {
+    if (!incoming) {
+      return
+    }
+
+    const dedupeKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`
+    const incomingFiles = Array.from(incoming)
+
+    setImageFiles((previous) => {
+      const uniqueMap = new Map<string, File>()
+
+      for (const file of previous) {
+        uniqueMap.set(dedupeKey(file), file)
+      }
+
+      for (const file of incomingFiles) {
+        uniqueMap.set(dedupeKey(file), file)
+      }
+
+      return Array.from(uniqueMap.values()).slice(0, 10)
+    })
+  }
+
+  const removeImageAt = (indexToRemove: number) => {
+    setImageFiles((previous) => previous.filter((_, index) => index !== indexToRemove))
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     setErrorMsg(null)
+
+    const finalCategory =
+      selectedCategory === OTHER_CATEGORY_VALUE
+        ? customCategory.trim()
+        : selectedCategory.trim()
 
     const parsedPrice = Number(form.price)
 
@@ -90,8 +141,13 @@ export default function PostForm({
       return
     }
 
-    if (mode === 'create' && !imageFile) {
-      setErrorMsg('Selecciona una imagen para la publicacion.')
+    if (!finalCategory) {
+      setErrorMsg('Selecciona una categoria o escribe una personalizada.')
+      return
+    }
+
+    if (mode === 'create' && imageFiles.length === 0) {
+      setErrorMsg('Selecciona al menos una imagen para la publicacion.')
       return
     }
 
@@ -108,9 +164,9 @@ export default function PostForm({
       title: form.title.trim(),
       description: form.description.trim(),
       price: parsedPrice,
-      category: form.category.trim(),
+      category: finalCategory,
       whatsappNumber: normalizedWhatsapp,
-      imageFile,
+      imageFiles,
     })
 
     if (result?.error) {
@@ -181,15 +237,36 @@ export default function PostForm({
 
           <label className="flex flex-col gap-1.5">
             <span className="text-sm font-medium text-foreground">Categoria</span>
-            <input
+            <select
               className="thsj-input px-3 py-2.5"
-              value={form.category}
-              onChange={(event) =>
-                setForm((previous) => ({ ...previous, category: event.target.value }))
-              }
-              placeholder="Ej: Tecnologia"
+              value={selectedCategory}
+              onChange={(event) => setSelectedCategory(event.target.value)}
               required
-            />
+            >
+              <option value="" disabled>
+                Selecciona una categoria
+              </option>
+              {PREDEFINED_POST_CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+              <option value={OTHER_CATEGORY_VALUE}>Otra (provisoria)</option>
+            </select>
+
+            {selectedCategory === OTHER_CATEGORY_VALUE ? (
+              <input
+                className="thsj-input mt-2 px-3 py-2.5"
+                value={customCategory}
+                onChange={(event) => setCustomCategory(event.target.value)}
+                placeholder="Escribe la categoria que falta"
+                required
+              />
+            ) : null}
+
+            <span className="text-xs text-(--foreground-muted)">
+              Si no existe tu categoria, usa la opcion Otra provisoria. Luego la sumamos al listado oficial.
+            </span>
           </label>
         </div>
 
@@ -225,17 +302,61 @@ export default function PostForm({
 
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-foreground">
-            {mode === 'create' ? 'Imagen' : 'Nueva imagen (opcional)'}
+            {mode === 'create' ? 'Imagenes' : 'Nuevas imagenes (opcionales)'}
           </span>
           <input
+            ref={imageInputRef}
             className="thsj-input px-3 py-2.5 text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-(--brand-secondary) file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[#152638]"
             type="file"
             accept="image/*"
-            onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
-            required={mode === 'create'}
+            multiple
+            onChange={(event) => {
+              addImageFiles(event.target.files)
+              event.currentTarget.value = ''
+            }}
+            required={mode === 'create' && imageFiles.length === 0}
           />
+
+          <div className="mt-2 flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => imageInputRef.current?.click()}
+              className="thsj-btn thsj-btn-ghost px-3 py-1.5 text-xs"
+            >
+              Agregar mas fotos
+            </button>
+          </div>
+
+          {imageFiles.length > 0 ? (
+            <div className="mt-3 rounded-xl border border-(--line) bg-(--background-muted) p-3">
+              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-(--foreground-muted)">
+                Imagenes seleccionadas ({imageFiles.length})
+              </p>
+              <ul className="space-y-2">
+                {imageFiles.map((file, index) => (
+                  <li
+                    key={`${file.name}-${file.lastModified}-${index}`}
+                    className="flex items-center justify-between gap-2 text-sm"
+                  >
+                    <span className="truncate text-(--foreground-muted)">
+                      {index === 0 ? 'Principal: ' : `Foto ${index + 1}: `}
+                      {file.name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeImageAt(index)}
+                      className="thsj-btn thsj-btn-ghost px-2 py-1 text-xs"
+                    >
+                      Quitar
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+
           {needsImage ? (
-            <span className="text-xs text-(--foreground-muted)">Agrega una imagen para publicar.</span>
+            <span className="text-xs text-(--foreground-muted)">Agrega al menos una imagen para publicar.</span>
           ) : null}
         </label>
 

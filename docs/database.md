@@ -24,13 +24,23 @@ create table if not exists public.posts (
 	created_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.post_images (
+	id uuid primary key default gen_random_uuid(),
+	post_id uuid not null references public.posts(id) on delete cascade,
+	image_url text not null,
+	position integer not null default 1,
+	created_at timestamptz not null default timezone('utc', now())
+);
+
 alter table public.posts
 add column if not exists whatsapp_number text;
 
 create index if not exists posts_created_at_idx on public.posts (created_at desc);
 create index if not exists posts_user_id_idx on public.posts (user_id);
+create index if not exists post_images_post_id_idx on public.post_images (post_id, position);
 
 alter table public.posts enable row level security;
+alter table public.post_images enable row level security;
 
 drop policy if exists "posts_select_authenticated" on public.posts;
 create policy "posts_select_authenticated"
@@ -56,6 +66,59 @@ create policy "posts_delete_own_user"
 on public.posts for delete
 to authenticated
 using (auth.uid() = user_id);
+
+drop policy if exists "post_images_select_public" on public.post_images;
+create policy "post_images_select_public"
+on public.post_images for select
+to public
+using (true);
+
+drop policy if exists "post_images_insert_owner" on public.post_images;
+create policy "post_images_insert_owner"
+on public.post_images for insert
+to authenticated
+with check (
+	exists (
+		select 1
+		from public.posts p
+		where p.id = post_id
+		and p.user_id = auth.uid()
+	)
+);
+
+drop policy if exists "post_images_update_owner" on public.post_images;
+create policy "post_images_update_owner"
+on public.post_images for update
+to authenticated
+using (
+	exists (
+		select 1
+		from public.posts p
+		where p.id = post_id
+		and p.user_id = auth.uid()
+	)
+)
+with check (
+	exists (
+		select 1
+		from public.posts p
+		where p.id = post_id
+		and p.user_id = auth.uid()
+	)
+);
+
+drop policy if exists "post_images_delete_owner" on public.post_images;
+create policy "post_images_delete_owner"
+on public.post_images for delete
+to authenticated
+using (
+	exists (
+		select 1
+		from public.posts p
+		where p.id = post_id
+		and p.user_id = auth.uid()
+	)
+);
 ```
 
 ## 2) Bucket de imagenes
@@ -109,8 +172,9 @@ using (
 ## 3) CRUD que ya quedo cableado en frontend
 
 - Crear publicacion: /create-post
-- Subida de imagen al bucket: post-images
+- Subida de imagenes al bucket: post-images
 - Guardado en tabla: posts
+- Imagenes extra por publicacion: post_images
 - Feed principal: /
 
 No se agrego chat, reputacion, favoritos, pagos ni IA.
