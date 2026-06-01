@@ -1,26 +1,213 @@
 @import "tailwindcss";
 
 :root {
-  --background: #f3f6fb;
-  --foreground: #0f172a;
+  --background: #f4f1ea;
+  --background-elevated: #ffffff;
+  --background-muted: #ece6db;
+  --foreground: #102033;
+  --foreground-muted: #4f6275;
+  --brand-primary: #0b7a75;
+  --brand-primary-strong: #075e5a;
+  --brand-secondary: #1d3147;
+  --brand-accent: #ff7a1a;
+  --brand-accent-soft: #fff0e6;
+  --line: #d9d4c8;
+  --line-strong: #b7b0a1;
+  --success: #18794e;
+  --danger: #b3261e;
+  --radius-sm: 0.625rem;
+  --radius-md: 0.875rem;
+  --radius-lg: 1.25rem;
+  --radius-xl: 1.75rem;
+  --shadow-card: 0 10px 30px rgba(16, 32, 51, 0.08);
+  --shadow-float: 0 18px 42px rgba(16, 32, 51, 0.14);
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-jakarta);
   --font-mono: var(--font-geist-mono);
+}
+
+* {
+  border-color: var(--line);
 }
 
 body {
   min-height: 100vh;
-  background: var(--background);
+  background:
+    radial-gradient(circle at 0% 0%, rgba(11, 122, 117, 0.13), transparent 42%),
+    radial-gradient(circle at 100% 80%, rgba(255, 122, 26, 0.14), transparent 38%),
+    radial-gradient(circle at 82% 24%, rgba(29, 49, 71, 0.06), transparent 42%),
+    var(--background);
   color: var(--foreground);
-  font-family: var(--font-geist-sans), "Segoe UI", sans-serif;
+  font-family: var(--font-jakarta), "Trebuchet MS", sans-serif;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }
 
+h1,
+h2,
+h3,
+h4 {
+  font-family: var(--font-space-grotesk), "Arial Narrow", sans-serif;
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+}
+
+h1 {
+  font-size: clamp(1.85rem, 2vw + 1.2rem, 2.85rem);
+  line-height: 1.12;
+}
+
+h2 {
+  font-size: clamp(1.4rem, 1.1vw + 1rem, 2.05rem);
+  line-height: 1.2;
+}
+
+h3 {
+  font-size: clamp(1.12rem, 0.6vw + 0.95rem, 1.35rem);
+  line-height: 1.25;
+}
+
+p {
+  color: var(--foreground-muted);
+}
+
+a {
+  transition: color 160ms ease, opacity 160ms ease;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(11, 122, 117, 0.24);
+  outline-offset: 2px;
+}
+
 main {
   width: 100%;
+}
+
+.thsj-panel {
+  border: 1px solid var(--line);
+  background: var(--background-elevated);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-card);
+}
+
+.thsj-card {
+  border: 1px solid var(--line);
+  background: var(--background-elevated);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.thsj-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-float);
+  border-color: var(--line-strong);
+}
+
+.thsj-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  padding: 0.62rem 0.95rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  transition: transform 160ms ease, box-shadow 160ms ease, background-color 160ms ease, border-color 160ms ease;
+}
+
+.thsj-btn:hover {
+  transform: translateY(-1px);
+}
+
+.thsj-btn-primary {
+  color: #ffffff;
+  background: linear-gradient(130deg, var(--brand-primary) 0%, var(--brand-primary-strong) 100%);
+  border: 1px solid transparent;
+  box-shadow: 0 10px 24px rgba(11, 122, 117, 0.26);
+}
+
+.thsj-btn-primary:hover {
+  box-shadow: 0 14px 30px rgba(11, 122, 117, 0.33);
+}
+
+.thsj-btn-secondary {
+  color: #ffffff;
+  background: linear-gradient(130deg, var(--brand-secondary) 0%, #152638 100%);
+  border: 1px solid transparent;
+  box-shadow: 0 10px 24px rgba(29, 49, 71, 0.25);
+}
+
+.thsj-btn-secondary:hover {
+  box-shadow: 0 14px 30px rgba(29, 49, 71, 0.33);
+}
+
+.thsj-btn-ghost {
+  color: var(--foreground);
+  background: #ffffff;
+  border: 1px solid var(--line-strong);
+}
+
+.thsj-btn-ghost:hover {
+  background: #fbfaf7;
+}
+
+.thsj-btn-danger {
+  color: var(--danger);
+  background: #fff3f2;
+  border: 1px solid #f0b8b6;
+}
+
+.thsj-btn-danger:hover {
+  background: #ffe8e6;
+}
+
+.thsj-input {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: #fbfaf7;
+  color: var(--foreground);
+  transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+}
+
+.thsj-input::placeholder {
+  color: #8d96a5;
+}
+
+.thsj-input:hover {
+  border-color: var(--line-strong);
+}
+
+.thsj-input:focus {
+  border-color: rgba(11, 122, 117, 0.68);
+  background: #ffffff;
+  box-shadow: 0 0 0 4px rgba(11, 122, 117, 0.12);
+}
+
+.thsj-chip {
+  border: 1px solid var(--line);
+  background: #ffffff;
+  color: var(--foreground-muted);
+  border-radius: 999px;
+}
+
+.thsj-premium-text {
+  background: linear-gradient(115deg, var(--brand-primary-strong) 0%, var(--brand-primary) 55%, #2ca39d 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@media (max-width: 640px) {
+  .thsj-panel {
+    border-radius: var(--radius-lg);
+  }
 }

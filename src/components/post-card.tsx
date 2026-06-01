@@ -11,6 +11,7 @@ type PostCardProps = {
   href?: string
   publishedAt?: string
   actions?: ReactNode
+  onOpen?: () => void
 }
 
 function formatPublishedAt(value?: string) {
@@ -41,6 +42,7 @@ export default function PostCard({
   href,
   publishedAt,
   actions,
+  onOpen,
 }: PostCardProps) {
   const cardContent = (
     <>
@@ -54,45 +56,50 @@ export default function PostCard({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/25 to-transparent" />
         </div>
       ) : (
-        <div className="flex h-56 items-center justify-center bg-slate-100 text-sm text-slate-500">
+        <div className="flex h-56 items-center justify-center bg-[var(--background-muted)] text-sm text-[var(--foreground-muted)]">
           Sin imagen
         </div>
       )}
 
       <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-        <div className="text-2xl font-extrabold tracking-tight text-emerald-700">
+        <div className="font-[var(--font-space-grotesk)] text-2xl font-extrabold tracking-tight text-[var(--brand-primary)]">
           ${Number(price).toFixed(2)}
         </div>
 
         <div className="flex items-start justify-between gap-3">
-          <h2 className="line-clamp-2 text-base font-semibold text-slate-900 sm:text-lg">
+          <h2 className="line-clamp-2 text-base font-semibold text-[var(--foreground)] sm:text-lg">
             {title}
           </h2>
-          <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-medium text-slate-600">
+          <span className="rounded-full border border-[var(--line)] bg-[var(--background-elevated)] px-2.5 py-1 text-xs font-medium text-[var(--foreground-muted)]">
             {category}
           </span>
         </div>
 
-        <p className="line-clamp-3 text-sm leading-6 text-slate-600">{description}</p>
+        <p className="line-clamp-3 text-sm leading-6 text-[var(--foreground-muted)]">{description}</p>
 
-        <div className="mt-auto flex items-center justify-between border-t border-slate-100 pt-3 text-sm text-slate-500">
+        <div className="mt-auto flex items-center justify-between border-t border-[var(--line)] pt-3 text-sm text-[var(--foreground-muted)]">
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-slate-400" />
+            <span className="h-2 w-2 rounded-full bg-[var(--brand-accent)]" />
             San Juan, AR
           </span>
-          <span className="text-xs text-slate-400">{formatPublishedAt(publishedAt)}</span>
+          <span className="text-xs text-[var(--foreground-muted)]">{formatPublishedAt(publishedAt)}</span>
         </div>
       </div>
     </>
   )
 
   const containerClassName =
-    'group flex h-full flex-col overflow-hidden rounded-3xl border border-slate-200/80 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-xl'
+    'thsj-card group flex h-full flex-col overflow-hidden'
 
   return (
     <article className={containerClassName} data-post-id={id}>
       {href ? (
-        <Link href={href} className="flex flex-1 flex-col" aria-label={`Ver detalle de ${title}`}>
+        <Link
+          href={href}
+          className="flex flex-1 flex-col"
+          aria-label={`Ver detalle de ${title}`}
+          onClick={onOpen}
+        >
           {cardContent}
         </Link>
       ) : (

@@ -36,11 +36,11 @@ export default function ActiveFilterChips({
         <button
           type="button"
           onClick={onRemoveSearch}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-400"
+          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-[var(--line-strong)]"
         >
-          <span className="text-slate-500">Busqueda:</span>
+          <span className="text-[var(--foreground-muted)]">Busqueda:</span>
           <span className="max-w-36 truncate">{searchQuery}</span>
-          <span className="text-slate-400">✕</span>
+          <span className="text-[var(--foreground-muted)]">✕</span>
         </button>
       ) : null}
 
@@ -48,11 +48,11 @@ export default function ActiveFilterChips({
         <button
           type="button"
           onClick={onRemoveCategory}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-400"
+          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-[var(--line-strong)]"
         >
-          <span className="text-slate-500">Categoria:</span>
+          <span className="text-[var(--foreground-muted)]">Categoria:</span>
           <span>{selectedCategory}</span>
-          <span className="text-slate-400">✕</span>
+          <span className="text-[var(--foreground-muted)]">✕</span>
         </button>
       ) : null}
 
@@ -60,11 +60,11 @@ export default function ActiveFilterChips({
         <button
           type="button"
           onClick={onRemoveSort}
-          className="inline-flex items-center gap-2 rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 transition hover:border-slate-400"
+          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-[var(--line-strong)]"
         >
-          <span className="text-slate-500">Orden:</span>
+          <span className="text-[var(--foreground-muted)]">Orden:</span>
           <span>{sortLabels[sortBy as Exclude<SortOption, 'recent'>]}</span>
-          <span className="text-slate-400">✕</span>
+          <span className="text-[var(--foreground-muted)]">✕</span>
         </button>
       ) : null}
     </div>

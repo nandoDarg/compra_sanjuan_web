@@ -1,0 +1,560 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tutorial Interactivo - tratohechoSJ</title>
+  <style>
+    :root {
+      --bg: #f4efe6;
+      --ink: #1f2a37;
+      --card: #ffffff;
+      --line: #d8d0c5;
+      --brand: #0f766e;
+      --brand-soft: #dff3f1;
+      --accent: #f59e0b;
+      --ok: #166534;
+      --warn: #92400e;
+      --danger: #7f1d1d;
+      --shadow: 0 10px 30px rgba(31, 42, 55, 0.08);
+      --radius: 16px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 0% 0%, #efe6d8 0%, rgba(239, 230, 216, 0) 45%),
+        radial-gradient(circle at 100% 100%, #e5f6f4 0%, rgba(229, 246, 244, 0) 40%),
+        var(--bg);
+      line-height: 1.6;
+    }
+
+    .container {
+      width: min(1100px, 92%);
+      margin: 0 auto;
+      padding: 26px 0 60px;
+    }
+
+    header {
+      background: linear-gradient(120deg, #0f766e 0%, #115e59 65%, #0a4f4b 100%);
+      color: #fff;
+      border-radius: var(--radius);
+      padding: 30px;
+      box-shadow: var(--shadow);
+      position: relative;
+      overflow: hidden;
+      animation: rise 600ms ease-out;
+    }
+
+    header::after {
+      content: "";
+      position: absolute;
+      width: 300px;
+      height: 300px;
+      right: -70px;
+      top: -80px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: clamp(1.6rem, 3vw, 2.4rem);
+    }
+
+    h2 {
+      margin: 0 0 10px;
+      font-size: clamp(1.2rem, 2vw, 1.7rem);
+    }
+
+    h3 {
+      margin: 0 0 8px;
+      font-size: 1.05rem;
+    }
+
+    .subtitle {
+      margin: 0 0 16px;
+      max-width: 760px;
+      opacity: 0.95;
+    }
+
+    .chip-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .chip {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      padding: 6px 10px;
+      border-radius: 999px;
+      font-size: 0.9rem;
+    }
+
+    .toolbar {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 12px;
+      align-items: center;
+      margin: 16px 0 0;
+    }
+
+    .toolbar input {
+      width: 100%;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      background: #fff;
+      color: var(--ink);
+    }
+
+    .progress-box {
+      background: #ffffff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 8px 12px;
+      min-width: 220px;
+      text-align: center;
+      font-weight: 600;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(12, 1fr);
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 18px;
+      animation: rise 550ms ease-out;
+      animation-fill-mode: both;
+    }
+
+    .span-12 { grid-column: span 12; }
+    .span-8 { grid-column: span 8; }
+    .span-6 { grid-column: span 6; }
+    .span-4 { grid-column: span 4; }
+
+    .tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .tab-btn {
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      padding: 8px 12px;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 600;
+      transition: all 180ms ease;
+    }
+
+    .tab-btn.active,
+    .tab-btn:hover {
+      background: var(--brand-soft);
+      border-color: #9ad6d2;
+      color: #0f3f3b;
+      transform: translateY(-1px);
+    }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    details {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 10px 12px;
+      margin-bottom: 10px;
+      background: #fff;
+    }
+
+    summary {
+      cursor: pointer;
+      font-weight: 700;
+      list-style: none;
+    }
+
+    summary::-webkit-details-marker { display: none; }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .flow .node {
+      border: 1px dashed #88b7b3;
+      border-radius: 12px;
+      background: #f6fcfb;
+      padding: 12px;
+      text-align: center;
+      font-weight: 600;
+      min-height: 90px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .checklist {
+      display: grid;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .check {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 9px 10px;
+    }
+
+    .check input {
+      margin-top: 4px;
+      transform: scale(1.1);
+      accent-color: var(--brand);
+    }
+
+    .pill {
+      display: inline-block;
+      font-size: 0.82rem;
+      padding: 4px 9px;
+      border-radius: 999px;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+
+    .ok { background: #dcfce7; color: var(--ok); }
+    .warn { background: #fef3c7; color: var(--warn); }
+    .danger { background: #fee2e2; color: var(--danger); }
+
+    .small {
+      font-size: 0.92rem;
+      opacity: 0.9;
+    }
+
+    .glossary-item {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 10px;
+      background: #fff;
+      margin-bottom: 8px;
+    }
+
+    .quote {
+      border-left: 4px solid var(--accent);
+      background: #fffaf0;
+      padding: 10px 12px;
+      border-radius: 8px;
+    }
+
+    footer {
+      margin-top: 18px;
+      text-align: center;
+      color: #5b6574;
+      font-size: 0.9rem;
+    }
+
+    @keyframes rise {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @media (max-width: 960px) {
+      .span-8, .span-6, .span-4 { grid-column: span 12; }
+      .toolbar { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <header>
+      <h1>Tutorial Interactivo de tratohechoSJ</h1>
+      <p class="subtitle">
+        Esta pagina explica, en lenguaje simple, como esta construido el proyecto,
+        por que se eligieron estas tecnologias, como funciona por dentro y como repetirlo paso a paso.
+      </p>
+      <div class="chip-row">
+        <span class="chip">Nivel: no programador</span>
+        <span class="chip">Formato: guia visual + practica</span>
+        <span class="chip">Estado: actualizado a Mayo 2026</span>
+      </div>
+    </header>
+
+    <section class="toolbar">
+      <input id="searchInput" type="text" placeholder="Buscar tema: arquitectura, supabase, android, whatsapp..." />
+      <div class="progress-box">Progreso de lectura: <span id="progressText">0%</span></div>
+    </section>
+
+    <section class="grid" id="contentRoot">
+      <article class="card span-8 searchable" data-tags="resumen vision objetivo tutorial">
+        <h2>1) Resumen para entender el proyecto en 60 segundos</h2>
+        <p>
+          tratohechoSJ es un marketplace local. En palabras simples: una web donde una persona publica algo para vender
+          y otra persona lo encuentra rapido y le escribe por WhatsApp.
+        </p>
+        <div class="quote">
+          Idea central: "menos pasos, mas contacto real".
+        </div>
+        <ul>
+          <li>Explorar publicaciones sin registrarse.</li>
+          <li>Publicar solo si hay sesion iniciada.</li>
+          <li>Contactar al vendedor con un boton de WhatsApp.</li>
+          <li>Version web activa y wrapper Android en avance.</li>
+        </ul>
+      </article>
+
+      <aside class="card span-4 searchable" data-tags="avance checklist lectura aprender">
+        <h2>Checklist de aprendizaje</h2>
+        <div class="small">Marca lo que ya entendiste para ver tu avance.</div>
+        <div class="checklist" id="studyChecklist">
+          <label class="check"><input type="checkbox" /> <span>Que problema resuelve el proyecto</span></label>
+          <label class="check"><input type="checkbox" /> <span>Que tecnologias se usan y para que</span></label>
+          <label class="check"><input type="checkbox" /> <span>Como viaja la informacion (usuario -> base de datos)</span></label>
+          <label class="check"><input type="checkbox" /> <span>Como se protege la informacion de cada usuario</span></label>
+          <label class="check"><input type="checkbox" /> <span>Que falta para cerrar Android</span></label>
+        </div>
+      </aside>
+
+      <article class="card span-12 searchable" data-tags="tecnologias stack next react typescript tailwind supabase capacitor">
+        <h2>2) Tecnologias, explicadas sin tecnicismos</h2>
+        <div class="tabs" role="tablist" aria-label="Tecnologias principales">
+          <button class="tab-btn active" data-tab="tab-front">Frontend</button>
+          <button class="tab-btn" data-tab="tab-back">Datos y usuarios</button>
+          <button class="tab-btn" data-tab="tab-mobile">Android</button>
+        </div>
+
+        <div id="tab-front" class="tab-panel active">
+          <p><strong>Next.js 16 + React 19 + TypeScript + Tailwind:</strong></p>
+          <ul>
+            <li><strong>Next.js:</strong> organiza la web por paginas y rutas.</li>
+            <li><strong>React:</strong> permite armar bloques reutilizables (botones, cards, formularios).</li>
+            <li><strong>TypeScript:</strong> evita errores al programar, como un corrector inteligente.</li>
+            <li><strong>Tailwind:</strong> acelera el estilo visual sin escribir CSS gigante.</li>
+          </ul>
+        </div>
+
+        <div id="tab-back" class="tab-panel">
+          <p><strong>Supabase (Auth + Postgres + Storage):</strong></p>
+          <ul>
+            <li><strong>Auth:</strong> login y registro.</li>
+            <li><strong>Postgres:</strong> guarda publicaciones (titulo, precio, descripcion, etc).</li>
+            <li><strong>Storage:</strong> guarda imagenes de las publicaciones.</li>
+            <li><strong>RLS:</strong> reglas de seguridad para que cada usuario solo edite lo suyo.</li>
+          </ul>
+        </div>
+
+        <div id="tab-mobile" class="tab-panel">
+          <p><strong>Capacitor:</strong> envuelve la web en una app Android.</p>
+          <ul>
+            <li>No se reprograma todo en otro framework.</li>
+            <li>Se reutiliza la base web ya construida.</li>
+            <li>Estado actual: configurado, con pendiente de build APK debug final por entorno Java/JDK.</li>
+          </ul>
+        </div>
+      </article>
+
+      <article class="card span-12 searchable" data-tags="arquitectura flujo rutas publicas privadas appshell">
+        <h2>3) Arquitectura en modo visual</h2>
+        <p>
+          El sistema esta pensado para ser simple y claro. Primero se muestra contenido publico,
+          y solo cuando alguien quiere publicar, se exige iniciar sesion.
+        </p>
+        <div class="flow">
+          <div class="node">Usuario abre la web</div>
+          <div class="node">Rutas publicas: Feed y detalle</div>
+          <div class="node">Si quiere publicar: Login</div>
+          <div class="node">Guardar post en Supabase</div>
+          <div class="node">Imagen al bucket post-images</div>
+          <div class="node">Comprador contacta por WhatsApp</div>
+        </div>
+        <p class="small" style="margin-top: 10px;">
+          Rutas publicas: <strong>/</strong> y <strong>/post/[id]</strong>. Rutas privadas: <strong>/create-post</strong>,
+          <strong>/my-posts</strong>, <strong>/my-posts/[id]/edit</strong>. La proteccion se resuelve en AppShell.
+        </p>
+      </article>
+
+      <article class="card span-6 searchable" data-tags="como se programo proceso desarrollo pasos">
+        <h2>4) Como se programo (metodo de trabajo)</h2>
+        <details open>
+          <summary>Paso 1 - Base funcional minima</summary>
+          <p>Primero se hizo el flujo principal: ver publicaciones, crear publicaciones y guardar imagenes.</p>
+        </details>
+        <details>
+          <summary>Paso 2 - Seguridad y permisos</summary>
+          <p>Se agregaron politicas RLS en Supabase para que cada persona solo pueda modificar lo suyo.</p>
+        </details>
+        <details>
+          <summary>Paso 3 - Experiencia de usuario</summary>
+          <p>Se mejoro el uso en mobile, se agregaron skeletons, estados vacios y navegacion simple.</p>
+        </details>
+        <details>
+          <summary>Paso 4 - Conversion real</summary>
+          <p>Se priorizo WhatsApp para acortar el camino desde ver un producto hasta hablar con el vendedor.</p>
+        </details>
+        <details>
+          <summary>Paso 5 - Escalado sin romper</summary>
+          <p>Se dejo lista la base para Android con Capacitor, sin rehacer toda la aplicacion.</p>
+        </details>
+      </article>
+
+      <article class="card span-6 searchable" data-tags="features funcionalidades feed detalle create-post whatsapp compartir">
+        <h2>5) Funcionalidades actuales</h2>
+        <div>
+          <span class="pill ok">Marketplace publico</span>
+          <span class="pill ok">Auth con Supabase</span>
+          <span class="pill ok">CRUD de publicaciones</span>
+          <span class="pill ok">WhatsApp + compartir</span>
+          <span class="pill warn">Android: pendiente build final</span>
+        </div>
+        <ul>
+          <li>Feed publico con busqueda y filtros.</li>
+          <li>Detalle publico con publicaciones relacionadas.</li>
+          <li>Crear, editar, borrar publicaciones con sesion.</li>
+          <li>Subida de imagenes al bucket post-images.</li>
+          <li>Boton de WhatsApp con mensaje precargado.</li>
+        </ul>
+      </article>
+
+      <article class="card span-8 searchable" data-tags="base de datos rls seguridad supabase tabla posts">
+        <h2>6) Base de datos y seguridad para no programadores</h2>
+        <p>
+          Imagina una planilla central llamada <strong>posts</strong>. Cada fila es una publicacion.
+          Ademas, hay una "bodega" de imagenes llamada <strong>post-images</strong>.
+        </p>
+        <ul>
+          <li><strong>Tabla posts:</strong> titulo, descripcion, precio, categoria, whatsapp, imagen, fecha y usuario dueno.</li>
+          <li><strong>RLS activo:</strong> cualquiera puede ver; solo el dueno puede editar o borrar su publicacion.</li>
+          <li><strong>Storage:</strong> las imagenes se suben con reglas que respetan la cuenta autenticada.</li>
+        </ul>
+        <div class="quote">
+          Resultado: privacidad y orden sin hacer una arquitectura pesada.
+        </div>
+      </article>
+
+      <article class="card span-4 searchable" data-tags="aprender comandos npm desarrollo deploy vercel">
+        <h2>7) Mini guia para practicar</h2>
+        <p class="small">Si luego quieres verlo en accion:</p>
+        <ol>
+          <li>Abrir una terminal en la carpeta del proyecto.</li>
+          <li>Instalar dependencias: <strong>npm install</strong>.</li>
+          <li>Levantar entorno local: <strong>npm run dev</strong>.</li>
+          <li>Abrir navegador en <strong>http://localhost:3000</strong>.</li>
+          <li>Probar: explorar, login, crear publicacion, contactar por WhatsApp.</li>
+        </ol>
+      </article>
+
+      <article class="card span-12 searchable" data-tags="roadmap futuro fases mvp validacion">
+        <h2>8) Estado actual y siguiente etapa</h2>
+        <p>
+          El proyecto ya paso la etapa "solo idea". Hoy esta en fase de validacion real de mercado:
+          conseguir usuarios, medir uso real y corregir fricciones.
+        </p>
+        <div>
+          <span class="pill ok">MVP web en produccion</span>
+          <span class="pill ok">Flujo end-to-end funcional</span>
+          <span class="pill warn">APK debug pendiente por entorno Java/JDK</span>
+          <span class="pill danger">No priorizar aun: chat, pagos, IA, realtime complejo</span>
+        </div>
+      </article>
+
+      <article class="card span-6 searchable" data-tags="glosario terminos no programador aprender">
+        <h2>9) Glosario rapido</h2>
+        <div class="glossary-item"><strong>Frontend:</strong> lo que el usuario ve en pantalla.</div>
+        <div class="glossary-item"><strong>Backend:</strong> la logica y datos que no se ven directamente.</div>
+        <div class="glossary-item"><strong>Ruta:</strong> una pagina (ejemplo: /create-post).</div>
+        <div class="glossary-item"><strong>MVP:</strong> version minima util para validar la idea.</div>
+        <div class="glossary-item"><strong>RLS:</strong> reglas de seguridad por usuario en base de datos.</div>
+        <div class="glossary-item"><strong>Deploy:</strong> publicar la app para que otros la usen.</div>
+      </article>
+
+      <article class="card span-6 searchable" data-tags="quiz repaso autoevaluacion">
+        <h2>10) Autoevaluacion interactiva</h2>
+        <p>Responde mentalmente. Luego abre cada respuesta para confirmar:</p>
+        <details>
+          <summary>Pregunta 1: Por que se eligio Capacitor?</summary>
+          <p>Para reutilizar la app web y acelerar Android sin reconstruir todo en otro stack.</p>
+        </details>
+        <details>
+          <summary>Pregunta 2: Que protege RLS?</summary>
+          <p>Que cada usuario solo edite o elimine sus propias publicaciones.</p>
+        </details>
+        <details>
+          <summary>Pregunta 3: Cual es la prioridad del producto hoy?</summary>
+          <p>Validacion real con usuarios: uso, fricciones y conversion a contacto.</p>
+        </details>
+      </article>
+    </section>
+
+    <footer>
+      Tutorial generado para aprendizaje practico del proyecto tratohechoSJ.
+      Puedes editar este HTML para agregar capturas, videos o nuevos capitulos.
+    </footer>
+  </main>
+
+  <script>
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+
+    tabButtons.forEach((btn) => {
+      btn.addEventListener('click', () => {
+        tabButtons.forEach((b) => b.classList.remove('active'));
+        tabPanels.forEach((p) => p.classList.remove('active'));
+        btn.classList.add('active');
+        const panel = document.getElementById(btn.dataset.tab);
+        if (panel) panel.classList.add('active');
+      });
+    });
+
+    const checkboxes = document.querySelectorAll('#studyChecklist input[type="checkbox"]');
+    const progressText = document.getElementById('progressText');
+
+    function updateProgress() {
+      const total = checkboxes.length;
+      const done = [...checkboxes].filter((c) => c.checked).length;
+      const percent = total ? Math.round((done / total) * 100) : 0;
+      progressText.textContent = percent + '%';
+    }
+
+    checkboxes.forEach((cb) => cb.addEventListener('change', updateProgress));
+    updateProgress();
+
+    const searchInput = document.getElementById('searchInput');
+    const searchableCards = document.querySelectorAll('.searchable');
+
+    function normalize(text) {
+      return (text || '').toLowerCase().trim();
+    }
+
+    searchInput.addEventListener('input', () => {
+      const q = normalize(searchInput.value);
+      searchableCards.forEach((card) => {
+        const text = normalize(card.innerText);
+        const tags = normalize(card.dataset.tags);
+        const visible = !q || text.includes(q) || tags.includes(q);
+        card.style.display = visible ? '' : 'none';
+      });
+    });
+  </script>
+</body>
+</html>

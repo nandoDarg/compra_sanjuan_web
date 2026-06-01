@@ -2,11 +2,17 @@
 
 Este checklist deja el marketplace online y estable sin agregar features nuevas.
 
+## Estado de referencia (Mayo 2026)
+
+- Produccion estable: `https://comprasanjuanwebvercel.vercel.app`
+- Repositorio oficial conectado en Vercel: `nandoDarg/tratohechoSJ`
+- No usar repos espejo para deploy.
+
 ## 1) Crear proyecto en Vercel
 
 1. Entra a Vercel Dashboard.
 2. Click en **Add New... > Project**.
-3. Importa **solo** este repositorio: `nandoDarg/compra_sanjuan_web`.
+3. Importa **solo** este repositorio: `nandoDarg/tratohechoSJ`.
 4. Framework detectado: **Next.js**.
 5. Root directory: deja el directorio actual del proyecto.
 
@@ -30,7 +36,7 @@ Notas:
 
 Build local exitoso:
 - `next build` compila OK
-- Rutas app router detectadas: `/`, `/create-post`, `/login`, `/register`, `/my-posts`, `/my-posts/[id]/edit`
+- Rutas app router detectadas: `/`, `/post/[id]`, `/create-post`, `/login`, `/register`, `/my-posts`, `/my-posts/[id]/edit`
 
 ## 4) Deploy
 
@@ -88,6 +94,6 @@ Confirma en Supabase:
 
 ## 9) Higiene de setup (obligatorio)
 
-1. Mantener una unica fuente de despliegue: `nandoDarg/compra_sanjuan_web`.
+1. Mantener una unica fuente de despliegue: `nandoDarg/tratohechoSJ`.
 2. No usar repos espejo para Vercel (evita desfasajes de rutas como `/my-posts`).
 3. Si hubo relink de repositorio en Vercel, disparar un deploy nuevo para validar la version correcta.

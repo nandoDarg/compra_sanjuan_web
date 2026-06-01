@@ -2,6 +2,11 @@
 
 Ejecuta este bloque en el SQL Editor de Supabase en este orden.
 
+## Nota importante
+
+Si aparece el error `42P01: relation \"public.posts\" does not exist`, ejecuta el bloque completo desde esta guia empezando por `create table if not exists public.posts`.
+No ejecutar `alter table` aislado si la tabla aun no fue creada.
+
 ## 1) Tabla posts
 
 ```sql

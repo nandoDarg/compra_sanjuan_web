@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">tratohechoSJ</string>
+    <string name="title_activity_main">tratohechoSJ</string>
+    <string name="package_name">com.tratohechosj.web</string>
+    <string name="custom_url_scheme">com.tratohechosj.web</string>
+</resources>

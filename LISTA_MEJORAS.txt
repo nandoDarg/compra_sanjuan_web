@@ -1,0 +1,5 @@
+PENDIENTES:
+1. algoritmo para ordenar y ponderar publicaciones
+2. modelo de negocio, monetizacion proyecto
+3. chequeo del buscador; tiene que proponer sugerencias si no encuentra exactamente lo buscado, o mostrar resultados similares; NO puede dar un resultado vacío nunca, tiene que hacer que sigas dentro de la app aunque no encuentres, que sea adictiva la busqueda y la navegacion.
+4. Categorias y estructura de publicaicones.

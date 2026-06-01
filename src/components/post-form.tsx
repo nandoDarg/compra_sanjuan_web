@@ -124,22 +124,22 @@ export default function PostForm({
 
   return (
     <section className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-6 py-6 sm:py-8">
-      <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6">
-        <p className="text-xs font-semibold uppercase tracking-[0.12em] text-slate-500">
+      <div className="thsj-panel p-5 sm:p-6">
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-(--foreground-muted)">
           Marketplace
         </p>
-        <h1 className="mt-1 text-2xl font-bold text-slate-900 sm:text-3xl">{heading}</h1>
-        <p className="mt-2 text-sm text-slate-600">{description}</p>
+        <h1 className="mt-1 text-2xl font-bold text-foreground sm:text-3xl">{heading}</h1>
+        <p className="mt-2 text-sm">{description}</p>
       </div>
 
       <form
-        className="space-y-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-6"
+        className="thsj-panel space-y-4 p-5 sm:p-6"
         onSubmit={handleSubmit}
       >
         <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-slate-700">Titulo</span>
+          <span className="text-sm font-medium text-foreground">Titulo</span>
           <input
-            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
+            className="thsj-input px-3 py-2.5"
             value={form.title}
             onChange={(event) =>
               setForm((previous) => ({ ...previous, title: event.target.value }))
@@ -150,9 +150,9 @@ export default function PostForm({
         </label>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-slate-700">Descripcion</span>
+          <span className="text-sm font-medium text-foreground">Descripcion</span>
           <textarea
-            className="min-h-32 rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
+            className="thsj-input min-h-32 px-3 py-2.5"
             value={form.description}
             onChange={(event) =>
               setForm((previous) => ({ ...previous, description: event.target.value }))
@@ -164,9 +164,9 @@ export default function PostForm({
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-slate-700">Precio</span>
+            <span className="text-sm font-medium text-foreground">Precio</span>
             <input
-              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
+              className="thsj-input px-3 py-2.5"
               type="number"
               min="0"
               step="0.01"
@@ -180,9 +180,9 @@ export default function PostForm({
           </label>
 
           <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-slate-700">Categoria</span>
+            <span className="text-sm font-medium text-foreground">Categoria</span>
             <input
-              className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
+              className="thsj-input px-3 py-2.5"
               value={form.category}
               onChange={(event) =>
                 setForm((previous) => ({ ...previous, category: event.target.value }))
@@ -194,9 +194,9 @@ export default function PostForm({
         </div>
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-slate-700">WhatsApp de contacto</span>
+          <span className="text-sm font-medium text-foreground">WhatsApp de contacto</span>
           <input
-            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
+            className="thsj-input px-3 py-2.5"
             type="tel"
             value={form.whatsappNumber}
             onChange={(event) =>
@@ -205,14 +205,14 @@ export default function PostForm({
             placeholder="Ej: 5492645551234"
             required
           />
-          <span className="text-xs text-slate-500">
+          <span className="text-xs text-(--foreground-muted)">
             Incluye codigo de pais y area. Solo se guardan numeros.
           </span>
         </label>
 
         {currentImageUrl ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 p-3">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-500">
+          <div className="rounded-xl border border-(--line) bg-(--background-muted) p-3">
+            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-(--foreground-muted)">
               Imagen actual
             </p>
             <img
@@ -224,18 +224,18 @@ export default function PostForm({
         ) : null}
 
         <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-slate-700">
+          <span className="text-sm font-medium text-foreground">
             {mode === 'create' ? 'Imagen' : 'Nueva imagen (opcional)'}
           </span>
           <input
-            className="rounded-xl border border-slate-300 bg-slate-50 px-3 py-2.5 text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-900 file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-slate-700"
+            className="thsj-input px-3 py-2.5 text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-(--brand-secondary) file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[#152638]"
             type="file"
             accept="image/*"
             onChange={(event) => setImageFile(event.target.files?.[0] ?? null)}
             required={mode === 'create'}
           />
           {needsImage ? (
-            <span className="text-xs text-slate-500">Agrega una imagen para publicar.</span>
+            <span className="text-xs text-(--foreground-muted)">Agrega una imagen para publicar.</span>
           ) : null}
         </label>
 
@@ -248,12 +248,12 @@ export default function PostForm({
         <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
           <Link
             href={cancelHref}
-            className="inline-flex w-full items-center justify-center rounded-xl border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:border-slate-400 hover:bg-slate-50 sm:w-auto"
+            className="thsj-btn thsj-btn-ghost w-full sm:w-auto"
           >
             Cancelar
           </Link>
           <button
-            className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
+            className="thsj-btn thsj-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             type="submit"
             disabled={submitting}
           >

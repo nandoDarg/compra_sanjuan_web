@@ -29,12 +29,12 @@ export default function SearchBar({
 
   return (
     <label className="relative flex w-full items-center">
-      <span className="pointer-events-none absolute left-3 text-slate-400">⌕</span>
+      <span className="pointer-events-none absolute left-3 text-(--foreground-muted)">⌕</span>
       <input
         value={localValue}
         onChange={(event) => setLocalValue(event.target.value)}
         placeholder="Buscar por titulo, descripcion o categoria..."
-        className="w-full rounded-xl border border-slate-300 bg-slate-50 py-2.5 pl-9 pr-3 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-slate-400 focus:bg-white"
+        className="thsj-input w-full py-2.5 pl-9 pr-3 text-sm"
       />
     </label>
   )

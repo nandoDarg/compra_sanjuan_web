@@ -115,9 +115,9 @@ export default function EditPostPage() {
   if (loading) {
     return (
       <div className="mx-auto flex w-full max-w-3xl flex-1 items-center justify-center py-12">
-        <div className="rounded-2xl border border-slate-200 bg-white px-6 py-8 text-center shadow-sm">
-          <div className="mx-auto mb-3 h-10 w-10 animate-pulse rounded-full bg-slate-200" />
-          <p className="text-sm text-slate-600">Cargando publicacion...</p>
+        <div className="thsj-panel px-6 py-8 text-center">
+          <div className="mx-auto mb-3 h-10 w-10 animate-pulse rounded-full bg-[var(--background-muted)]" />
+          <p className="text-sm text-[var(--foreground-muted)]">Cargando publicacion...</p>
         </div>
       </div>
     )

@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import PostForm, { type PostFormSubmitData } from '@/components/post-form'
+import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
 
 export default function CreatePostPage() {
   const supabase = createClient()
@@ -53,6 +54,12 @@ export default function CreatePostPage() {
     if (insertError) {
       return { error: insertError.message }
     }
+
+    trackEvent(ANALYTICS_EVENTS.POST_CREATED, {
+      category: formData.category,
+      price: Number(formData.price),
+      has_image: Boolean(formData.imageFile),
+    })
 
     router.push('/')
     router.refresh()

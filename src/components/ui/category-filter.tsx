@@ -20,10 +20,10 @@ export default function CategoryFilter({
             type="button"
             onClick={() => onChange(category)}
             className={[
-              'whitespace-nowrap rounded-full border px-3 py-1.5 text-sm transition',
+              'whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition',
               isActive
-                ? 'border-slate-900 bg-slate-900 text-white'
-                : 'border-slate-300 bg-white text-slate-700 hover:border-slate-400 hover:bg-slate-50',
+                ? 'border-[var(--brand-primary-strong)] bg-[var(--brand-primary)] text-white shadow-sm'
+                : 'thsj-chip hover:border-[var(--line-strong)] hover:bg-[var(--background-elevated)]',
             ].join(' ')}
           >
             {category}
