@@ -2,7 +2,7 @@
 
 Este checklist deja el marketplace online y estable sin agregar features nuevas.
 
-## Estado de referencia (Mayo 2026)
+## Estado de referencia (Junio 2026)
 
 - Produccion estable: `https://comprasanjuanwebvercel.vercel.app`
 - Repositorio oficial conectado en Vercel: `nandoDarg/tratohechoSJ`
@@ -26,6 +26,8 @@ Agrega estas variables en **Project Settings > Environment Variables** para:
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=https://zllxrmugjrfqclteftaq.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=sb_publishable_UVXrQT84AIQfOF2Hnu3lhw_7rK6BKm-
+NEXT_PUBLIC_POSTHOG_KEY=<tu-posthog-project-api-key>
+NEXT_PUBLIC_POSTHOG_HOST=https://us.i.posthog.com
 ```
 
 Notas:
@@ -57,20 +59,34 @@ Build local exitoso:
 ### Upload de imagenes y posts
 
 1. Abre `https://tu-proyecto.vercel.app/create-post`.
-2. Completa formulario y sube una imagen.
+2. Completa formulario y sube varias imagenes.
 3. Publica.
 4. Verifica que:
    - la publicacion aparece en `/`
-   - la imagen carga correctamente
+   - la galeria de imagenes carga correctamente
    - filtros y busqueda siguen funcionando
+
+### Validacion especifica de vehiculos
+
+1. Publica en categoria `Autos`, `Camionetas`, `Motos`, `Camiones` o `Utilitarios`.
+2. Completa ficha tecnica vehicular.
+3. Verifica en `/post/[id]` que la ficha se renderice correctamente.
+
+### Validacion de analytics
+
+1. Realiza login y crea una publicacion.
+2. Abre un detalle y presiona WhatsApp/Compartir.
+3. Verifica eventos en PostHog.
 
 ## 6) Requisitos Supabase para que funcione en produccion
 
 Confirma en Supabase:
 
 1. Tabla `posts` creada con RLS.
-2. Bucket `post-images` existe y es publico.
-3. Politicas de Storage y de `posts` creadas (ver `docs/database.md`).
+2. Tabla `post_images` creada con RLS.
+3. Tabla `vehicle_details` creada con RLS.
+4. Bucket `post-images` existe y es publico.
+5. Politicas de Storage y politicas de tablas aplicadas (ver `docs/database.md`).
 
 ## 7) Troubleshooting rapido
 

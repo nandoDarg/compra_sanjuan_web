@@ -2,7 +2,7 @@
 
 Marketplace web construido con Next.js + Supabase.
 
-## Estado actual (Mayo 2026)
+## Estado actual (Junio 2026)
 
 - Produccion online y validada con usuarios reales.
 - Marketplace publico para exploracion sin login:
@@ -16,6 +16,14 @@ Marketplace web construido con Next.js + Supabase.
 	- crear
 	- editar
 	- eliminar (con confirmacion)
+- Busqueda inteligente sin estado vacio (fallback por similitud + historial/interacciones locales).
+- Analytics de producto integrado con PostHog (registro, login, crear publicacion, ver detalle, compartir, WhatsApp, busqueda y categoria).
+- Flujo multimedia actualizado:
+	- hasta 10 imagenes por publicacion
+	- compresion cliente para limitar cada imagen a 2.5 MB maximo
+	- importacion por URL publica/Google Drive (cuando el enlace es publico)
+	- eliminacion rapida de imagenes con interfaz de miniaturas y boton de cierre
+- Publicaciones de vehiculos con ficha tecnica dedicada (marca, modelo, anio, kilometraje, combustible, transmision, condicion, primer duenio).
 - Contacto simple funcionando:
 	- campo `whatsapp_number` en publicaciones
 	- boton WhatsApp en detalle
@@ -63,6 +71,10 @@ npm run dev
 ```bash
 npm run build
 ```
+
+5. Si es la primera vez con este proyecto, ejecutar SQL de Supabase:
+
+- `docs/database.md` (incluye `posts`, `post_images`, `vehicle_details`, RLS y storage).
 
 ## Rutas principales
 

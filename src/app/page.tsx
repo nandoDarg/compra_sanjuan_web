@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import PostCard from '@/components/post-card'
 import FeedSkeleton from '@/components/ui/feed-skeleton'
@@ -32,6 +32,7 @@ type InteractionHistoryRecord = {
 
 const DEFAULT_CATEGORIES = ['Todas']
 const SUGGESTION_LIMIT = 5
+const SEARCH_DEBOUNCE_MS = 350
 const HISTORY_MAX_ITEMS = 12
 const INTERACTIONS_MAX_ITEMS = 40
 const SEARCH_HISTORY_STORAGE_KEY = 'thsj:search-history'
@@ -242,6 +243,7 @@ export default function Home() {
   const [posts, setPosts] = useState<Post[]>([])
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
   const [loading, setLoading] = useState(true)
+  const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('Todas')
   const [sortBy, setSortBy] = useState<SortOption>('recent')
@@ -252,14 +254,23 @@ export default function Home() {
   const [interactionCategories, setInteractionCategories] = useState<string[]>([])
   const [interactionPostIds, setInteractionPostIds] = useState<Set<string>>(new Set())
   const lastTrackedSearchQueryRef = useRef('')
+  const loadRequestIdRef = useRef(0)
 
-  const registerSearchTerm = (term: string) => {
+  const registerSearchTerm = useCallback((term: string) => {
     const normalized = term.trim()
     if (normalized.length < 2) {
       return
     }
 
-    const existing = readSearchHistory(viewerId).filter(
+    const existingHistory = readSearchHistory(viewerId)
+    if (
+      existingHistory[0] &&
+      normalizeText(existingHistory[0].term) === normalizeText(normalized)
+    ) {
+      return
+    }
+
+    const existing = existingHistory.filter(
       (item) => normalizeText(item.term) !== normalizeText(normalized)
     )
     const updated = [
@@ -269,11 +280,10 @@ export default function Home() {
 
     writeSearchHistory(viewerId, updated)
     setSearchHistoryTerms(updated.map((item) => item.term))
-  }
+  }, [viewerId])
 
   const handleSearchChange = (value: string) => {
-    setSearchQuery(value)
-    registerSearchTerm(value)
+    setSearchInput(value)
   }
 
   const handleCategoryChange = (category: string) => {
@@ -338,7 +348,20 @@ export default function Home() {
   }, [supabase])
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const nextQuery = searchInput.trim()
+      setSearchQuery((previous) => (previous === nextQuery ? previous : nextQuery))
+      registerSearchTerm(nextQuery)
+    }, SEARCH_DEBOUNCE_MS)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [registerSearchTerm, searchInput])
+
+  useEffect(() => {
     const loadPosts = async () => {
+      const requestId = loadRequestIdRef.current + 1
+      loadRequestIdRef.current = requestId
+
       setLoading(true)
       setFallbackMode('none')
       setSuggestions([])
@@ -367,6 +390,10 @@ export default function Home() {
       }
 
       const { data, error } = await query
+
+      if (requestId !== loadRequestIdRef.current) {
+        return
+      }
 
       if (!error) {
         const basePosts = data ?? []
@@ -400,6 +427,10 @@ export default function Home() {
 
           const { data: withCategoryData } = await fallbackWithCategoryQuery
 
+          if (requestId !== loadRequestIdRef.current) {
+            return
+          }
+
           const hasCategoryFallback = (withCategoryData?.length ?? 0) > 0
 
           const fallbackCandidates = hasCategoryFallback
@@ -409,6 +440,10 @@ export default function Home() {
                 .select('id,title,description,price,category,image_url,created_at')
                 .order('created_at', { ascending: false })
                 .limit(80)).data ?? []
+
+          if (requestId !== loadRequestIdRef.current) {
+            return
+          }
 
           const normalizedQuery = normalizeText(searchQuery)
           const queryTokens = splitTokens(searchQuery)
@@ -467,7 +502,9 @@ export default function Home() {
         }
       }
 
-      setLoading(false)
+      if (requestId === loadRequestIdRef.current) {
+        setLoading(false)
+      }
     }
 
     loadPosts()
@@ -485,6 +522,7 @@ export default function Home() {
     searchQuery.length > 0 || selectedCategory !== 'Todas' || sortBy !== 'recent'
 
   const clearFilters = () => {
+    setSearchInput('')
     setSearchQuery('')
     setSelectedCategory('Todas')
     setSortBy('recent')
@@ -516,7 +554,7 @@ export default function Home() {
 
         <div className="mt-5 flex flex-col gap-3 sm:mt-6">
           <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
-            <SearchBar value={searchQuery} onDebouncedChange={handleSearchChange} />
+            <SearchBar value={searchInput} onChange={handleSearchChange} />
 
             <label className="relative flex w-full">
               <select
@@ -555,7 +593,10 @@ export default function Home() {
               searchQuery={searchQuery}
               selectedCategory={selectedCategory}
               sortBy={sortBy}
-              onRemoveSearch={() => setSearchQuery('')}
+              onRemoveSearch={() => {
+                setSearchInput('')
+                setSearchQuery('')
+              }}
               onRemoveCategory={() => handleCategoryChange('Todas')}
               onRemoveSort={() => setSortBy('recent')}
             />
@@ -579,7 +620,11 @@ export default function Home() {
                 <button
                   key={term}
                   type="button"
-                  onClick={() => setSearchQuery(term)}
+                  onClick={() => {
+                    setSearchInput(term)
+                    setSearchQuery(term)
+                    registerSearchTerm(term)
+                  }}
                   className="thsj-chip"
                 >
                   Probar: {term}

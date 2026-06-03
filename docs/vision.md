@@ -1,5 +1,7 @@
 # Vision de producto
 
+Ultima actualizacion: Junio 2026.
+
 tratohechoSJ busca ser el marketplace local mas simple para publicar, descubrir y contactar vendedores en segundos.
 
 ## Norte de producto
@@ -18,6 +20,7 @@ Prioridad inmediata:
 - adquirir usuarios
 - medir comportamiento
 - corregir fricciones UX detectadas en campo
+- reforzar conversion de publicacion a contacto (busqueda -> detalle -> WhatsApp)
 
 ## Principios de decision
 
@@ -32,3 +35,5 @@ Prioridad inmediata:
 - clics en WhatsApp
 - tasa de abandono en create-post
 - tiempo promedio hasta primer contacto
+- conversion de busqueda a apertura de detalle
+- uso de categorias vehiculares y completitud de ficha tecnica

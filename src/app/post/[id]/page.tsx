@@ -4,10 +4,12 @@ import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import PostCard from '@/components/post-card'
+import { useAuth } from '@/components/auth-provider'
 import EmptyState from '@/components/ui/empty-state'
 import PostDetailSkeleton from '@/components/ui/post-detail-skeleton'
 import { createClient } from '@/lib/supabase-client'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
+import type { VehicleDetailsInput } from '@/lib/vehicle-details'
 
 type Post = {
   id: string
@@ -24,6 +26,8 @@ type Post = {
 type PostImage = {
   image_url: string
 }
+
+type VehicleDetailsRow = VehicleDetailsInput
 
 function sanitizeWhatsAppNumber(value: string | null) {
   if (!value) {
@@ -51,10 +55,12 @@ export default function PostDetailPage() {
   const params = useParams<{ id: string }>()
   const postId = params.id
   const supabase = useMemo(() => createClient(), [])
+  const { user } = useAuth()
 
   const [post, setPost] = useState<Post | null>(null)
   const [relatedPosts, setRelatedPosts] = useState<Post[]>([])
   const [postImages, setPostImages] = useState<string[]>([])
+  const [vehicleDetails, setVehicleDetails] = useState<VehicleDetailsInput | null>(null)
   const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -94,6 +100,14 @@ export default function PostDetailPage() {
 
       setPostImages(Array.from(new Set(mergedImages)))
       setSelectedImageIndex(0)
+
+      const { data: vehicleDetailsData } = await supabase
+        .from('vehicle_details')
+        .select('brand,model,year,mileage,fuel_type,transmission,condition,first_owner')
+        .eq('post_id', data.id)
+        .maybeSingle()
+
+      setVehicleDetails((vehicleDetailsData as VehicleDetailsRow | null) ?? null)
 
       const { data: relatedData } = await supabase
         .from('posts')
@@ -216,6 +230,7 @@ export default function PostDetailPage() {
   }
 
   const hasWhatsAppContact = Boolean(sanitizeWhatsAppNumber(post.whatsapp_number))
+  const isOwner = user?.id === post.user_id
 
   return (
     <section className="flex w-full flex-1 flex-col gap-6 py-6 sm:py-8">
@@ -279,6 +294,48 @@ export default function PostDetailPage() {
             ${Number(post.price).toFixed(2)}
           </p>
 
+          {vehicleDetails ? (
+            <div className="mt-4 rounded-2xl border border-(--line) bg-(--background-elevated) p-4 text-sm text-(--foreground-muted)">
+              <p className="text-xs uppercase tracking-wide text-(--foreground-muted)">
+                Informacion del vehiculo
+              </p>
+              <dl className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-(--foreground-muted)">Marca</dt>
+                  <dd className="font-medium text-foreground">{vehicleDetails.brand}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-(--foreground-muted)">Modelo</dt>
+                  <dd className="font-medium text-foreground">{vehicleDetails.model}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-(--foreground-muted)">Año</dt>
+                  <dd className="font-medium text-foreground">{vehicleDetails.year}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-(--foreground-muted)">Kilometros</dt>
+                  <dd className="font-medium text-foreground">{vehicleDetails.mileage.toLocaleString('es-AR')}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-(--foreground-muted)">Combustible</dt>
+                  <dd className="font-medium text-foreground">{vehicleDetails.fuel_type}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-(--foreground-muted)">Transmision</dt>
+                  <dd className="font-medium text-foreground">{vehicleDetails.transmission}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-(--foreground-muted)">Estado</dt>
+                  <dd className="font-medium text-foreground">{vehicleDetails.condition}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-(--foreground-muted)">Primera mano</dt>
+                  <dd className="font-medium text-foreground">{vehicleDetails.first_owner ? 'Si' : 'No'}</dd>
+                </div>
+              </dl>
+            </div>
+          ) : null}
+
           <div className="mt-6 space-y-4 text-sm text-(--foreground-muted)">
             <div className="rounded-2xl border border-(--line) bg-(--background-muted) p-4">
               <p className="font-medium text-foreground">Descripcion</p>
@@ -304,6 +361,14 @@ export default function PostDetailPage() {
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            {isOwner ? (
+              <Link
+                href={`/my-posts/${post.id}/edit`}
+                className="thsj-btn thsj-btn-ghost inline-flex items-center justify-center gap-2 px-4 py-2.5 text-sm sm:col-span-2"
+              >
+                Editar publicacion
+              </Link>
+            ) : null}
             <button
               type="button"
               onClick={handleContact}

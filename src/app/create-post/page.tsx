@@ -4,6 +4,9 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import PostForm, { type PostFormSubmitData } from '@/components/post-form'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
+import { isVehicleCategory } from '@/lib/vehicle-details'
+
+const MAX_IMAGE_SIZE_BYTES = Math.round(2.5 * 1024 * 1024)
 
 export default function CreatePostPage() {
   const supabase = createClient()
@@ -12,6 +15,10 @@ export default function CreatePostPage() {
   const handleSubmit = async (formData: PostFormSubmitData) => {
     if (formData.imageFiles.length === 0) {
       return { error: 'Selecciona al menos una imagen para la publicacion.' }
+    }
+
+    if (formData.imageFiles.some((file) => file.size > MAX_IMAGE_SIZE_BYTES)) {
+      return { error: 'Cada imagen debe pesar como maximo 2.5MB.' }
     }
 
     const {
@@ -87,6 +94,34 @@ export default function CreatePostPage() {
 
         return {
           error: 'No se pudo guardar la galeria de imagenes. Revisa la migracion de post_images e intenta nuevamente.',
+        }
+      }
+    }
+
+    if (formData.vehicleDetails && isVehicleCategory(formData.category)) {
+      const { error: vehicleDetailsError } = await supabase.from('vehicle_details').insert({
+        post_id: insertedPost.id,
+        brand: formData.vehicleDetails.brand,
+        model: formData.vehicleDetails.model,
+        year: formData.vehicleDetails.year,
+        mileage: formData.vehicleDetails.mileage,
+        fuel_type: formData.vehicleDetails.fuel_type,
+        transmission: formData.vehicleDetails.transmission,
+        condition: formData.vehicleDetails.condition,
+        first_owner: formData.vehicleDetails.first_owner,
+      })
+
+      if (vehicleDetailsError) {
+        await supabase
+          .from('posts')
+          .delete()
+          .eq('id', insertedPost.id)
+          .eq('user_id', user.id)
+
+        await supabase.storage.from('post-images').remove(uploadedImages.map((image) => image.filePath))
+
+        return {
+          error: 'No se pudo guardar la informacion del vehiculo. Revisa la migracion de vehicle_details.',
         }
       }
     }

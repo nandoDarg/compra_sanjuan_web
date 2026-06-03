@@ -1,5 +1,7 @@
 # Supabase - Modulo Publicaciones
 
+Ultima actualizacion: Junio 2026.
+
 Ejecuta este bloque en el SQL Editor de Supabase en este orden.
 
 ## Nota importante
@@ -32,15 +34,48 @@ create table if not exists public.post_images (
 	created_at timestamptz not null default timezone('utc', now())
 );
 
+create table if not exists public.vehicle_details (
+	id uuid primary key default gen_random_uuid(),
+	post_id uuid not null unique references public.posts(id) on delete cascade,
+	brand text not null,
+	model text not null,
+	year integer not null,
+	mileage integer not null default 0,
+	fuel_type text not null,
+	transmission text not null,
+	condition text not null,
+	first_owner boolean not null default false,
+	created_at timestamptz not null default timezone('utc', now()),
+	updated_at timestamptz not null default timezone('utc', now())
+);
+
+create or replace function public.set_vehicle_details_updated_at()
+returns trigger
+language plpgsql
+as $$
+begin
+	new.updated_at = timezone('utc', now());
+	return new;
+end;
+$$;
+
+drop trigger if exists trg_vehicle_details_updated_at on public.vehicle_details;
+create trigger trg_vehicle_details_updated_at
+before update on public.vehicle_details
+for each row
+execute function public.set_vehicle_details_updated_at();
+
 alter table public.posts
 add column if not exists whatsapp_number text;
 
 create index if not exists posts_created_at_idx on public.posts (created_at desc);
 create index if not exists posts_user_id_idx on public.posts (user_id);
 create index if not exists post_images_post_id_idx on public.post_images (post_id, position);
+create index if not exists vehicle_details_post_id_idx on public.vehicle_details (post_id);
 
 alter table public.posts enable row level security;
 alter table public.post_images enable row level security;
+alter table public.vehicle_details enable row level security;
 
 drop policy if exists "posts_select_authenticated" on public.posts;
 create policy "posts_select_authenticated"
@@ -119,7 +154,69 @@ using (
 		and p.user_id = auth.uid()
 	)
 );
+
+drop policy if exists "vehicle_details_select_public" on public.vehicle_details;
+create policy "vehicle_details_select_public"
+on public.vehicle_details for select
+to public
+using (true);
+
+drop policy if exists "vehicle_details_insert_owner" on public.vehicle_details;
+create policy "vehicle_details_insert_owner"
+on public.vehicle_details for insert
+to authenticated
+with check (
+	exists (
+		select 1
+		from public.posts p
+		where p.id = post_id
+		and p.user_id = auth.uid()
+	)
+);
+
+drop policy if exists "vehicle_details_update_owner" on public.vehicle_details;
+create policy "vehicle_details_update_owner"
+on public.vehicle_details for update
+to authenticated
+using (
+	exists (
+		select 1
+		from public.posts p
+		where p.id = post_id
+		and p.user_id = auth.uid()
+	)
+)
+with check (
+	exists (
+		select 1
+		from public.posts p
+		where p.id = post_id
+		and p.user_id = auth.uid()
+	)
+);
+
+drop policy if exists "vehicle_details_delete_owner" on public.vehicle_details;
+create policy "vehicle_details_delete_owner"
+on public.vehicle_details for delete
+to authenticated
+using (
+	exists (
+		select 1
+		from public.posts p
+		where p.id = post_id
+		and p.user_id = auth.uid()
+	)
+);
 ```
+
+### Pasos exactos en Supabase (obligatorio para vehiculos)
+
+1. Abre SQL Editor en Supabase.
+2. Ejecuta el bloque completo de la seccion **1) Tabla posts** (incluye `vehicle_details`).
+3. Si usas entorno existente, verifica que ya exista `post_images`; no la elimines.
+4. Publica cambios y valida que no haya errores.
+5. Prueba crear una publicacion en categoria `Autos`, `Camionetas`, `Motos`, `Camiones` o `Utilitarios`.
+6. Verifica en tabla `vehicle_details` que se guarde un registro con `post_id` de la publicacion.
 
 ## 2) Bucket de imagenes
 
@@ -175,6 +272,7 @@ using (
 - Subida de imagenes al bucket: post-images
 - Guardado en tabla: posts
 - Imagenes extra por publicacion: post_images
+- Datos tecnicos de vehiculos: vehicle_details
 - Feed principal: /
 
 No se agrego chat, reputacion, favoritos, pagos ni IA.
