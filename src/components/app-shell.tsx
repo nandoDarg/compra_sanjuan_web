@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { Suspense, type ReactNode, useEffect } from 'react'
 import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from './auth-provider'
 import Navbar from './navbar'
@@ -19,7 +19,7 @@ function isPublicPath(pathname: string) {
 export default function AppShell({
   children,
 }: {
-  children: React.ReactNode
+  children: ReactNode
 }) {
   const { user, loading } = useAuth()
   const pathname = usePathname()
@@ -36,7 +36,9 @@ export default function AppShell({
   if (!isPublicRoute && (loading || !user)) {
     return (
       <>
-        <Navbar />
+        <Suspense fallback={null}>
+          <Navbar />
+        </Suspense>
         <main className="mx-auto flex w-full max-w-7xl flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
           <div className="thsj-panel px-6 py-10 text-center">
             <div className="mx-auto mb-3 h-10 w-10 animate-pulse rounded-full bg-[var(--background-muted)]" />
@@ -49,7 +51,9 @@ export default function AppShell({
 
   return (
     <>
-      <Navbar />
+      <Suspense fallback={null}>
+        <Navbar />
+      </Suspense>
       <main className="flex-1">
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">{children}</div>
       </main>

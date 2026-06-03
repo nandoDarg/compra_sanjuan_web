@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import PostCard from '@/components/post-card'
 import FeedSkeleton from '@/components/ui/feed-skeleton'
@@ -237,7 +237,7 @@ const scoreByHistory = (
   return score
 }
 
-export default function Home() {
+function HomeContent() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -660,5 +660,13 @@ export default function Home() {
         </div>
       )}
     </section>
+  )
+}
+
+export default function Home() {
+  return (
+    <Suspense fallback={<FeedSkeleton items={8} />}>
+      <HomeContent />
+    </Suspense>
   )
 }

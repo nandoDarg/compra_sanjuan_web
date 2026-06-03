@@ -16,7 +16,7 @@ export default function Navbar() {
   const isAuthRoute = pathname === '/login' || pathname === '/register'
   const isFeedRoute = pathname === '/'
   const queryFromUrl = searchParams.get('q') ?? ''
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchDebounceRef = useRef<number | null>(null)
 
   const updateFeedQuery = useCallback(
     (nextValue: string) => {
