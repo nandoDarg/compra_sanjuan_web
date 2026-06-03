@@ -1,12 +1,11 @@
 'use client'
 
-import Link from 'next/link'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import PostCard from '@/components/post-card'
 import FeedSkeleton from '@/components/ui/feed-skeleton'
 import EmptyState from '@/components/ui/empty-state'
-import SearchBar from '@/components/ui/search-bar'
 import CategoryFilter from '@/components/ui/category-filter'
 import ActiveFilterChips from '@/components/ui/active-filter-chips'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
@@ -33,7 +32,6 @@ type InteractionHistoryRecord = {
 
 const DEFAULT_CATEGORIES = ['Todas']
 const SUGGESTION_LIMIT = 5
-const SEARCH_DEBOUNCE_MS = 350
 const HISTORY_MAX_ITEMS = 12
 const INTERACTIONS_MAX_ITEMS = 40
 const SEARCH_HISTORY_STORAGE_KEY = 'thsj:search-history'
@@ -240,13 +238,18 @@ const scoreByHistory = (
 }
 
 export default function Home() {
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const supabase = useMemo(() => createClient(), [])
+  const searchQuery = useMemo(
+    () => (searchParams.get('q') ?? '').trim(),
+    [searchParams]
+  )
   const [posts, setPosts] = useState<Post[]>([])
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
   const [loading, setLoading] = useState(true)
   const [feedError, setFeedError] = useState<string | null>(null)
-  const [searchInput, setSearchInput] = useState('')
-  const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('Todas')
   const [sortBy, setSortBy] = useState<SortOption>('recent')
   const [fallbackMode, setFallbackMode] = useState<FallbackMode>('none')
@@ -284,9 +287,21 @@ export default function Home() {
     setSearchHistoryTerms(updated.map((item) => item.term))
   }, [viewerId])
 
-  const handleSearchChange = (value: string) => {
-    setSearchInput(value)
-  }
+  const updateSearchQuery = useCallback(
+    (nextValue: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+
+      if (nextValue.trim()) {
+        params.set('q', nextValue.trim())
+      } else {
+        params.delete('q')
+      }
+
+      const nextQueryString = params.toString()
+      router.replace(nextQueryString ? `${pathname}?${nextQueryString}` : pathname)
+    },
+    [pathname, router, searchParams]
+  )
 
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category)
@@ -353,16 +368,6 @@ export default function Home() {
   }, [supabase])
 
   useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      const nextQuery = searchInput.trim()
-      setSearchQuery((previous) => (previous === nextQuery ? previous : nextQuery))
-      registerSearchTerm(nextQuery)
-    }, SEARCH_DEBOUNCE_MS)
-
-    return () => window.clearTimeout(timeoutId)
-  }, [registerSearchTerm, searchInput])
-
-  useEffect(() => {
     const loadPosts = async () => {
       const requestId = loadRequestIdRef.current + 1
       loadRequestIdRef.current = requestId
@@ -402,6 +407,7 @@ export default function Home() {
       }
 
       if (!error) {
+        registerSearchTerm(searchQuery)
         const basePosts = data ?? []
         const normalizedSearchQuery = normalizeText(searchQuery.trim())
 
@@ -520,6 +526,7 @@ export default function Home() {
   }, [
     interactionCategories,
     interactionPostIds,
+    registerSearchTerm,
     searchHistoryTerms,
     searchQuery,
     selectedCategory,
@@ -531,85 +538,56 @@ export default function Home() {
     searchQuery.length > 0 || selectedCategory !== 'Todas' || sortBy !== 'recent'
 
   const clearFilters = () => {
-    setSearchInput('')
-    setSearchQuery('')
+    updateSearchQuery('')
     setSelectedCategory('Todas')
     setSortBy('recent')
   }
 
   return (
-    <section className="flex w-full flex-1 flex-col gap-6 py-6 sm:py-8">
-      <div className="thsj-panel p-5 sm:p-6">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-(--foreground-muted)">
-              Marketplace
-            </p>
-            <h1 className="mt-1 font-bold text-foreground">
-              Publicaciones disponibles
-            </h1>
-            <p className="mt-2 text-sm">
-              Explora productos locales y encuentra oportunidades cerca tuyo.
-            </p>
-          </div>
+    <section className="flex w-full flex-1 flex-col gap-4 py-4 sm:gap-5 sm:py-5">
+      <div className="thsj-panel p-4 sm:p-5">
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[220px_auto]">
+          <label className="relative flex w-full">
+            <select
+              value={sortBy}
+              onChange={(event) => setSortBy(event.target.value as SortOption)}
+              className="thsj-input w-full appearance-none px-3 py-2.5 pr-9 text-sm"
+            >
+              <option value="recent">Mas recientes</option>
+              <option value="price-asc">Menor precio</option>
+              <option value="price-desc">Mayor precio</option>
+            </select>
+            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-(--foreground-muted)">
+              ▾
+            </span>
+          </label>
 
-          <Link
-            href="/create-post"
-            className="thsj-btn thsj-btn-primary"
-          >
-            Nueva publicacion
-          </Link>
+          {hasFilters ? (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="thsj-btn thsj-btn-ghost"
+            >
+              Limpiar filtros
+            </button>
+          ) : null}
         </div>
 
-        <div className="mt-5 flex flex-col gap-3 sm:mt-6">
-          <div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_220px_auto]">
-            <SearchBar value={searchInput} onChange={handleSearchChange} />
+        <div className="mt-3 flex flex-col gap-3">
+          <CategoryFilter
+            categories={categories}
+            selectedCategory={selectedCategory}
+            onChange={handleCategoryChange}
+          />
 
-            <label className="relative flex w-full">
-              <select
-                value={sortBy}
-                onChange={(event) => setSortBy(event.target.value as SortOption)}
-                className="thsj-input w-full appearance-none px-3 py-2.5 pr-9 text-sm"
-              >
-                <option value="recent">Mas recientes</option>
-                <option value="price-asc">Menor precio</option>
-                <option value="price-desc">Mayor precio</option>
-              </select>
-              <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-(--foreground-muted)">
-                ▾
-              </span>
-            </label>
-
-            {hasFilters ? (
-              <button
-                type="button"
-                onClick={clearFilters}
-                className="thsj-btn thsj-btn-ghost"
-              >
-                Limpiar filtros
-              </button>
-            ) : null}
-          </div>
-
-          <div className="flex flex-col gap-3">
-            <CategoryFilter
-              categories={categories}
-              selectedCategory={selectedCategory}
-              onChange={handleCategoryChange}
-            />
-
-            <ActiveFilterChips
-              searchQuery={searchQuery}
-              selectedCategory={selectedCategory}
-              sortBy={sortBy}
-              onRemoveSearch={() => {
-                setSearchInput('')
-                setSearchQuery('')
-              }}
-              onRemoveCategory={() => handleCategoryChange('Todas')}
-              onRemoveSort={() => setSortBy('recent')}
-            />
-          </div>
+          <ActiveFilterChips
+            searchQuery={searchQuery}
+            selectedCategory={selectedCategory}
+            sortBy={sortBy}
+            onRemoveSearch={() => updateSearchQuery('')}
+            onRemoveCategory={() => handleCategoryChange('Todas')}
+            onRemoveSort={() => setSortBy('recent')}
+          />
         </div>
       </div>
 
@@ -630,8 +608,7 @@ export default function Home() {
                   key={term}
                   type="button"
                   onClick={() => {
-                    setSearchInput(term)
-                    setSearchQuery(term)
+                    updateSearchQuery(term)
                     registerSearchTerm(term)
                   }}
                   className="thsj-chip"

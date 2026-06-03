@@ -8,7 +8,6 @@
   <rect x="4" y="4" width="84" height="84" rx="22" fill="url(#g1)"/>
   <path d="M20 30h52v8H52v26H40V38H20z" fill="#F4F1EA"/>
   <path d="M62 48h10c0 10-7 18-18 18-9 0-14-5-14-12h11c0 2 1 4 4 4 4 0 7-3 7-10z" fill="#FF9C4A"/>
-  <text x="102" y="48" font-size="34" font-family="'Space Grotesk', 'Trebuchet MS', sans-serif" font-weight="700" fill="#102033" letter-spacing="-0.7">tratohecho</text>
-  <text x="290" y="48" font-size="34" font-family="'Space Grotesk', 'Trebuchet MS', sans-serif" font-weight="700" fill="#0B7A75" letter-spacing="-0.7">SJ</text>
-  <text x="103" y="70" font-size="12" font-family="'Plus Jakarta Sans', 'Trebuchet MS', sans-serif" font-weight="600" fill="#4F6275" letter-spacing="1.5">www.tratohechosj.com.ar</text>
+  <text x="102" y="52" font-size="40" font-family="'Space Grotesk', 'Trebuchet MS', sans-serif" font-weight="700" fill="#102033" letter-spacing="-1">tratohecho</text>
+  <text x="304" y="52" font-size="40" font-family="'Space Grotesk', 'Trebuchet MS', sans-serif" font-weight="700" fill="#0B7A75" letter-spacing="-1">SJ</text>
 </svg>

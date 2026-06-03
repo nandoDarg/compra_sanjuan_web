@@ -1,16 +1,55 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname, useRouter } from 'next/navigation'
+import { useCallback, useRef } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { useAuth } from './auth-provider'
+import SearchBar from './ui/search-bar'
 
 export default function Navbar() {
   const { user, loading } = useAuth()
   const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
+  const searchParams = useSearchParams()
   const isAuthRoute = pathname === '/login' || pathname === '/register'
+  const isFeedRoute = pathname === '/'
+  const queryFromUrl = searchParams.get('q') ?? ''
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const updateFeedQuery = useCallback(
+    (nextValue: string) => {
+      const params = new URLSearchParams(searchParams.toString())
+
+      if (nextValue) {
+        params.set('q', nextValue)
+      } else {
+        params.delete('q')
+      }
+
+      const nextQueryString = params.toString()
+      router.replace(nextQueryString ? `/?${nextQueryString}` : '/')
+    },
+    [router, searchParams]
+  )
+
+  const handleSearchChange = useCallback(
+    (value: string) => {
+      if (!isFeedRoute) {
+        return
+      }
+
+      if (searchDebounceRef.current) {
+        window.clearTimeout(searchDebounceRef.current)
+      }
+
+      searchDebounceRef.current = window.setTimeout(() => {
+        updateFeedQuery(value.trim())
+      }, 300)
+    },
+    [isFeedRoute, updateFeedQuery]
+  )
 
   const logout = async () => {
     await supabase.auth.signOut()
@@ -18,20 +57,27 @@ export default function Navbar() {
   }
 
   return (
-    <nav className="sticky top-0 z-30 border-b bg-white/90 backdrop-blur-xl">
-      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6 lg:px-8">
-        <Link href="/" className="group flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--brand-accent-soft)] transition group-hover:-translate-y-0.5 group-hover:shadow-md">
-            <img src="/brand-mark-thsj.svg" alt="THSJ" className="h-8 w-8" />
-          </span>
+    <nav className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-xl">
+      <div className="mx-auto flex w-full max-w-7xl flex-wrap items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
+        <Link href="/" className="group flex items-center">
           <img
             src="/logo-navbar.svg"
             alt="tratohechoSJ"
-            className="h-9 w-auto min-w-[170px] max-w-[240px] transition group-hover:opacity-95 sm:h-10"
+            className="h-10 w-auto min-w-[190px] max-w-[280px] transition group-hover:opacity-95 sm:h-11"
           />
         </Link>
 
-        <div className="flex items-center gap-2 sm:gap-3">
+        {isFeedRoute ? (
+          <div className="order-3 w-full sm:order-2 sm:mx-4 sm:flex-1 sm:max-w-2xl">
+            <SearchBar
+              key={queryFromUrl}
+              initialValue={queryFromUrl}
+              onChange={handleSearchChange}
+            />
+          </div>
+        ) : null}
+
+        <div className="order-2 ml-auto flex items-center gap-2 sm:order-3 sm:gap-3">
         {loading && !isAuthRoute ? (
           <span className="thsj-chip rounded-lg px-3 py-1.5 text-sm">
             Cargando...

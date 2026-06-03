@@ -1,20 +1,28 @@
 'use client'
 
+import { useState } from 'react'
+
 type SearchBarProps = {
-  value: string
+  initialValue?: string
   onChange: (value: string) => void
 }
 
 export default function SearchBar({
-  value,
+  initialValue = '',
   onChange,
 }: SearchBarProps) {
+  const [value, setValue] = useState(initialValue)
+
   return (
     <label className="relative flex w-full items-center">
       <span className="pointer-events-none absolute left-3 text-(--foreground-muted)">⌕</span>
       <input
         value={value}
-        onChange={(event) => onChange(event.target.value)}
+        onChange={(event) => {
+          const nextValue = event.target.value
+          setValue(nextValue)
+          onChange(nextValue)
+        }}
         placeholder="Buscar por titulo, descripcion o categoria..."
         className="thsj-input w-full py-2.5 pl-9 pr-3 text-sm"
       />
