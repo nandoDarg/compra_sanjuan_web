@@ -2,29 +2,65 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
 
 export default function RegisterPage() {
   const supabase = createClient()
+  const router = useRouter()
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  const normalizeEmail = (value: string) => value.trim().toLowerCase()
 
   const handleRegister = async () => {
-    const { error } = await supabase.auth.signUp({
-      email,
-      password,
+    setError('')
+    setSuccess('')
+
+    const normalizedEmail = normalizeEmail(email)
+    const normalizedPassword = password.trim()
+
+    if (!normalizedEmail) {
+      setError('Ingresa un email valido.')
+      return
+    }
+
+    if (normalizedPassword.length < 6) {
+      setError('La contraseña debe tener al menos 6 caracteres.')
+      return
+    }
+
+    setLoading(true)
+
+    const { data, error } = await supabase.auth.signUp({
+      email: normalizedEmail,
+      password: normalizedPassword,
+      options: {
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
     })
 
+    setLoading(false)
+
     if (error) {
-      alert(error.message)
+      setError(error.message)
     } else {
       trackEvent(ANALYTICS_EVENTS.USER_REGISTERED, {
         method: 'email_password',
         timestamp: new Date().toISOString(),
       })
-      alert('Registro correcto')
+
+      if (data.session) {
+        router.push('/')
+        return
+      }
+
+      setSuccess('Cuenta creada. Revisa tu email para confirmar la cuenta antes de iniciar sesion.')
     }
   }
 
@@ -43,6 +79,8 @@ export default function RegisterPage() {
         <input
           className="thsj-input px-3 py-2.5"
           placeholder="Email"
+          type="email"
+          value={email}
           onChange={(e) => setEmail(e.target.value)}
         />
 
@@ -50,14 +88,19 @@ export default function RegisterPage() {
           className="thsj-input px-3 py-2.5"
           type="password"
           placeholder="Password"
+          value={password}
           onChange={(e) => setPassword(e.target.value)}
         />
+
+        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {success ? <p className="text-sm text-(--success)">{success}</p> : null}
 
         <button
           className="thsj-btn thsj-btn-primary"
           onClick={handleRegister}
+          disabled={loading}
         >
-          Registrarse
+          {loading ? 'Creando cuenta...' : 'Registrarse'}
         </button>
 
         <p className="text-center text-sm text-(--foreground-muted)">

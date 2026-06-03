@@ -15,14 +15,80 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [info, setInfo] = useState('')
+  const [showResend, setShowResend] = useState(false)
+  const [resending, setResending] = useState(false)
+
+  const normalizeEmail = (value: string) => value.trim().toLowerCase()
+
+  const mapAuthErrorMessage = (rawMessage: string) => {
+    const normalized = rawMessage.toLowerCase()
+
+    if (normalized.includes('email not confirmed')) {
+      setShowResend(true)
+      return 'Tu cuenta aun no fue confirmada. Revisa tu correo o reenvia el email de verificacion.'
+    }
+
+    setShowResend(false)
+    return rawMessage
+  }
+
+  const handleResendConfirmation = async () => {
+    const normalizedEmail = normalizeEmail(email)
+
+    if (!normalizedEmail) {
+      setError('Ingresa tu email para reenviar la verificacion.')
+      return
+    }
+
+    setResending(true)
+    setError('')
+    setInfo('')
+
+    const { error: resendError } = await supabase.auth.resend({
+      type: 'signup',
+      email: normalizedEmail,
+      options: {
+        emailRedirectTo: `${window.location.origin}/login`,
+      },
+    })
+
+    setResending(false)
+
+    if (resendError) {
+      setError(resendError.message)
+      return
+    }
+
+    setInfo('Te enviamos nuevamente el correo de confirmacion.')
+  }
 
   const handleLogin = async () => {
     setError('')
+    setInfo('')
+    setShowResend(false)
+
+    const normalizedEmail = normalizeEmail(email)
+    const normalizedPassword = password.trim()
+
+    if (!normalizedEmail) {
+      setError('Ingresa un email valido.')
+      return
+    }
+
+    if (!normalizedPassword) {
+      setError('Ingresa tu contraseña.')
+      return
+    }
+
     setLoading(true)
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password: normalizedPassword,
+    })
     setLoading(false)
     if (error) {
-      setError(error.message)
+      setError(mapAuthErrorMessage(error.message))
     } else {
       trackEvent(ANALYTICS_EVENTS.USER_LOGGED_IN, {
         method: 'email_password',
@@ -87,6 +153,21 @@ export default function LoginPage() {
           {error && (
             <p className="text-sm text-red-600">{error}</p>
           )}
+
+          {info && (
+            <p className="text-sm text-(--success)">{info}</p>
+          )}
+
+          {showResend ? (
+            <button
+              type="button"
+              onClick={handleResendConfirmation}
+              disabled={resending}
+              className="thsj-btn thsj-btn-ghost"
+            >
+              {resending ? 'Reenviando...' : 'Reenviar email de verificacion'}
+            </button>
+          ) : null}
 
           <button
             className="thsj-btn thsj-btn-primary"
