@@ -14,12 +14,15 @@ import {
   VEHICLE_FUEL_OPTIONS,
   VEHICLE_TRANSMISSION_OPTIONS,
 } from '@/lib/vehicle-details'
+import { isValidGoogleMapsUrl, SAN_JUAN_DEPARTMENTS } from '@/lib/post-location'
 
 type PostFormValues = {
   title: string
   description: string
   price: string
   whatsappNumber: string
+  locationDepartment: string
+  locationMapsUrl: string
 }
 
 type VehicleFormValues = {
@@ -43,6 +46,8 @@ export type PostFormSubmitData = {
   imageFiles: File[]
   keptExistingImageUrls: string[]
   vehicleDetails: VehicleDetailsInput | null
+  locationDepartment: string
+  locationMapsUrl: string | null
 }
 
 type PostFormProps = {
@@ -57,6 +62,8 @@ type PostFormProps = {
     category: string
     whatsappNumber: string | null
     imageUrl: string | null
+    locationDepartment: string | null
+    locationMapsUrl: string | null
     existingImageUrls?: string[]
     vehicleDetails?: VehicleDetailsInput | null
   }
@@ -69,6 +76,8 @@ const emptyValues: PostFormValues = {
   description: '',
   price: '',
   whatsappNumber: '',
+  locationDepartment: '',
+  locationMapsUrl: '',
 }
 
 const MAX_IMAGES = 10
@@ -197,6 +206,8 @@ export default function PostForm({
       description: initialValues.description,
       price: String(initialValues.price),
       whatsappNumber: initialValues.whatsappNumber ?? '',
+      locationDepartment: initialValues.locationDepartment ?? '',
+      locationMapsUrl: initialValues.locationMapsUrl ?? '',
     }
   })
 
@@ -410,6 +421,16 @@ export default function PostForm({
       return
     }
 
+    if (!form.locationDepartment.trim()) {
+      setErrorMsg('Selecciona un departamento para la ubicacion.')
+      return
+    }
+
+    if (form.locationMapsUrl.trim() && !isValidGoogleMapsUrl(form.locationMapsUrl)) {
+      setErrorMsg('Ingresa un link valido de Google Maps.')
+      return
+    }
+
     let vehicleDetailsPayload: VehicleDetailsInput | null = null
 
     if (showVehicleSection) {
@@ -489,6 +510,8 @@ export default function PostForm({
       imageFiles,
       keptExistingImageUrls: existingImageUrls,
       vehicleDetails: vehicleDetailsPayload,
+      locationDepartment: form.locationDepartment.trim(),
+      locationMapsUrl: form.locationMapsUrl.trim() ? form.locationMapsUrl.trim() : null,
     })
 
     if (result?.error) {
@@ -773,6 +796,49 @@ export default function PostForm({
             Incluye codigo de pais y area. Solo se guardan numeros.
           </span>
         </label>
+
+        <div className="rounded-2xl border border-(--line) bg-(--background-muted) p-4 sm:p-5">
+          <h2 className="text-base font-semibold text-foreground">Ubicacion</h2>
+
+          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-foreground">Departamento</span>
+              <select
+                className="thsj-input px-3 py-2.5"
+                value={form.locationDepartment}
+                onChange={(event) =>
+                  setForm((previous) => ({ ...previous, locationDepartment: event.target.value }))
+                }
+                required
+              >
+                <option value="" disabled>
+                  Selecciona un departamento
+                </option>
+                {SAN_JUAN_DEPARTMENTS.map((department) => (
+                  <option key={department} value={department}>
+                    {department}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-foreground">Link de Google Maps (opcional)</span>
+              <input
+                className="thsj-input px-3 py-2.5"
+                type="text"
+                value={form.locationMapsUrl}
+                onChange={(event) =>
+                  setForm((previous) => ({ ...previous, locationMapsUrl: event.target.value }))
+                }
+                placeholder="https://maps.google.com/... o https://maps.app.goo.gl/..."
+              />
+              <span className="text-xs text-(--foreground-muted)">
+                Si lo completas, debe ser un enlace valido de Google Maps.
+              </span>
+            </label>
+          </div>
+        </div>
 
         {mode === 'edit' && existingImageUrls.length > 0 ? (
           <div className="rounded-xl border border-(--line) bg-(--background-muted) p-3">

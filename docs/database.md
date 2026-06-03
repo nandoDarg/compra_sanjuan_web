@@ -22,6 +22,8 @@ create table if not exists public.posts (
 	price numeric(12,2) not null check (price >= 0),
 	category text not null,
 	whatsapp_number text,
+	location_department text,
+	location_maps_url text,
 	image_url text,
 	created_at timestamptz not null default timezone('utc', now())
 );
@@ -68,6 +70,12 @@ execute function public.set_vehicle_details_updated_at();
 alter table public.posts
 add column if not exists whatsapp_number text;
 
+alter table public.posts
+add column if not exists location_department text;
+
+alter table public.posts
+add column if not exists location_maps_url text;
+
 create index if not exists posts_created_at_idx on public.posts (created_at desc);
 create index if not exists posts_user_id_idx on public.posts (user_id);
 create index if not exists post_images_post_id_idx on public.post_images (post_id, position);
@@ -78,9 +86,10 @@ alter table public.post_images enable row level security;
 alter table public.vehicle_details enable row level security;
 
 drop policy if exists "posts_select_authenticated" on public.posts;
-create policy "posts_select_authenticated"
+drop policy if exists "posts_select_public" on public.posts;
+create policy "posts_select_public"
 on public.posts for select
-to authenticated
+to public
 using (true);
 
 drop policy if exists "posts_insert_own_user" on public.posts;
@@ -271,8 +280,37 @@ using (
 - Crear publicacion: /create-post
 - Subida de imagenes al bucket: post-images
 - Guardado en tabla: posts
+- Ubicacion por publicacion: location_department + location_maps_url
 - Imagenes extra por publicacion: post_images
 - Datos tecnicos de vehiculos: vehicle_details
 - Feed principal: /
+
+## 4) SQL de migracion puntual (solo ubicacion)
+
+Si solo necesitas agregar ubicacion en un entorno ya existente, ejecuta:
+
+```sql
+alter table public.posts
+add column if not exists location_department text;
+
+alter table public.posts
+add column if not exists location_maps_url text;
+```
+
+## 5) SQL de correccion para feed publico (sin login)
+
+Si los usuarios anonimos no ven publicaciones en `/`, ejecuta:
+
+```sql
+alter table public.posts enable row level security;
+
+drop policy if exists "posts_select_authenticated" on public.posts;
+drop policy if exists "posts_select_public" on public.posts;
+
+create policy "posts_select_public"
+on public.posts for select
+to public
+using (true);
+```
 
 No se agrego chat, reputacion, favoritos, pagos ni IA.

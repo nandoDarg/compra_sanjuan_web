@@ -17,6 +17,7 @@ type Post = {
   description: string
   price: number
   category: string
+  location_department: string | null
   image_url: string | null
   created_at: string
 }
@@ -243,6 +244,7 @@ export default function Home() {
   const [posts, setPosts] = useState<Post[]>([])
   const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
   const [loading, setLoading] = useState(true)
+  const [feedError, setFeedError] = useState<string | null>(null)
   const [searchInput, setSearchInput] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('Todas')
@@ -330,6 +332,9 @@ export default function Home() {
         .not('category', 'is', null)
 
       if (error || !data) {
+        if (error) {
+          setFeedError('No se pudo cargar el feed. Revisa permisos de lectura publica en Supabase.')
+        }
         return
       }
 
@@ -363,12 +368,13 @@ export default function Home() {
       loadRequestIdRef.current = requestId
 
       setLoading(true)
+      setFeedError(null)
       setFallbackMode('none')
       setSuggestions([])
 
       let query = supabase
         .from('posts')
-        .select('id,title,description,price,category,image_url,created_at')
+        .select('id,title,description,price,category,location_department,image_url,created_at')
 
       if (searchQuery) {
         const pattern = `%${searchQuery}%`
@@ -416,7 +422,7 @@ export default function Home() {
         } else if (searchQuery || selectedCategory !== 'Todas') {
           const fallbackBaseQuery = supabase
             .from('posts')
-            .select('id,title,description,price,category,image_url,created_at')
+            .select('id,title,description,price,category,location_department,image_url,created_at')
             .order('created_at', { ascending: false })
             .limit(80)
 
@@ -437,7 +443,7 @@ export default function Home() {
             ? withCategoryData ?? []
             : (await supabase
                 .from('posts')
-                .select('id,title,description,price,category,image_url,created_at')
+              .select('id,title,description,price,category,location_department,image_url,created_at')
                 .order('created_at', { ascending: false })
                 .limit(80)).data ?? []
 
@@ -500,6 +506,9 @@ export default function Home() {
         } else {
           setPosts([])
         }
+      } else {
+        setPosts([])
+        setFeedError('No se pudo cargar el feed. Revisa permisos de lectura publica en Supabase.')
       }
 
       if (requestId === loadRequestIdRef.current) {
@@ -635,6 +644,12 @@ export default function Home() {
         </div>
       ) : null}
 
+      {feedError ? (
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-[var(--danger)]">
+          {feedError}
+        </p>
+      ) : null}
+
       {loading ? (
         <FeedSkeleton items={8} />
       ) : posts.length === 0 ? (
@@ -657,6 +672,7 @@ export default function Home() {
               title={post.title}
               description={post.description}
               category={post.category}
+              locationDepartment={post.location_department}
               price={post.price}
               imageUrl={post.image_url}
               href={`/post/${post.id}`}

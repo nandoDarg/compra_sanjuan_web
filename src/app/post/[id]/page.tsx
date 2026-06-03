@@ -10,6 +10,7 @@ import PostDetailSkeleton from '@/components/ui/post-detail-skeleton'
 import { createClient } from '@/lib/supabase-client'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
 import type { VehicleDetailsInput } from '@/lib/vehicle-details'
+import { isValidGoogleMapsUrl } from '@/lib/post-location'
 
 type Post = {
   id: string
@@ -19,6 +20,8 @@ type Post = {
   price: number
   category: string
   whatsapp_number: string | null
+  location_department: string | null
+  location_maps_url: string | null
   image_url: string | null
   created_at: string
 }
@@ -74,7 +77,7 @@ export default function PostDetailPage() {
 
       const { data, error } = await supabase
         .from('posts')
-        .select('id,user_id,title,description,price,category,whatsapp_number,image_url,created_at')
+        .select('id,user_id,title,description,price,category,whatsapp_number,location_department,location_maps_url,image_url,created_at')
         .eq('id', postId)
         .single()
 
@@ -111,7 +114,7 @@ export default function PostDetailPage() {
 
       const { data: relatedData } = await supabase
         .from('posts')
-        .select('id,user_id,title,description,price,category,whatsapp_number,image_url,created_at')
+        .select('id,user_id,title,description,price,category,whatsapp_number,location_department,location_maps_url,image_url,created_at')
         .eq('category', data.category)
         .neq('id', data.id)
         .order('created_at', { ascending: false })
@@ -231,6 +234,10 @@ export default function PostDetailPage() {
 
   const hasWhatsAppContact = Boolean(sanitizeWhatsAppNumber(post.whatsapp_number))
   const isOwner = user?.id === post.user_id
+  const hasLocation = Boolean(post.location_department?.trim())
+  const hasMapsLocation = Boolean(
+    post.location_maps_url?.trim() && isValidGoogleMapsUrl(post.location_maps_url)
+  )
 
   return (
     <section className="flex w-full flex-1 flex-col gap-6 py-6 sm:py-8">
@@ -342,11 +349,23 @@ export default function PostDetailPage() {
               <p className="mt-2 leading-6">{post.description}</p>
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <div className="rounded-2xl border border-(--line) bg-(--background-elevated) p-4">
-                <p className="text-xs uppercase tracking-wide text-(--foreground-muted)">Ubicacion</p>
-                <p className="mt-1 font-medium text-foreground">San Juan, AR</p>
-              </div>
+            <div className={`grid grid-cols-1 gap-3 ${hasLocation ? 'sm:grid-cols-2' : ''}`}>
+              {hasLocation ? (
+                <div className="rounded-2xl border border-(--line) bg-(--background-elevated) p-4">
+                  <p className="text-xs uppercase tracking-wide text-(--foreground-muted)">Ubicacion</p>
+                  <p className="mt-1 font-medium text-foreground">📍 {post.location_department}</p>
+                  {hasMapsLocation ? (
+                    <a
+                      href={post.location_maps_url ?? undefined}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-2 inline-flex text-sm text-(--brand-primary) hover:underline"
+                    >
+                      Ver ubicacion en Google Maps
+                    </a>
+                  ) : null}
+                </div>
+              ) : null}
               <div className="rounded-2xl border border-(--line) bg-(--background-elevated) p-4">
                 <p className="text-xs uppercase tracking-wide text-(--foreground-muted)">Publicacion</p>
                 <p className="mt-1 font-medium text-foreground">{formatLongDate(post.created_at)}</p>
@@ -415,6 +434,7 @@ export default function PostDetailPage() {
                 title={relatedPost.title}
                 description={relatedPost.description}
                 category={relatedPost.category}
+                locationDepartment={relatedPost.location_department}
                 price={relatedPost.price}
                 imageUrl={relatedPost.image_url}
                 href={`/post/${relatedPost.id}`}

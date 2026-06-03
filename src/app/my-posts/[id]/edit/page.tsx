@@ -19,6 +19,8 @@ type Post = {
   price: number
   category: string
   whatsapp_number: string | null
+  location_department: string | null
+  location_maps_url: string | null
   image_url: string | null
 }
 
@@ -52,7 +54,7 @@ export default function EditPostPage() {
 
       const { data, error } = await supabase
         .from('posts')
-        .select('id,user_id,title,description,price,category,whatsapp_number,image_url')
+        .select('id,user_id,title,description,price,category,whatsapp_number,location_department,location_maps_url,image_url')
         .eq('id', postId)
         .eq('user_id', user.id)
         .single()
@@ -167,6 +169,8 @@ export default function EditPostPage() {
         price: formData.price,
         category: formData.category,
         whatsapp_number: formData.whatsappNumber,
+        location_department: formData.locationDepartment,
+        location_maps_url: formData.locationMapsUrl,
         image_url: primaryImageUrl,
       })
       .eq('id', post.id)
@@ -258,6 +262,8 @@ export default function EditPostPage() {
         price: Number(post.price),
         category: post.category,
         whatsappNumber: post.whatsapp_number,
+        locationDepartment: post.location_department,
+        locationMapsUrl: post.location_maps_url,
         imageUrl: post.image_url,
         existingImageUrls: existingGalleryUrls,
         vehicleDetails,

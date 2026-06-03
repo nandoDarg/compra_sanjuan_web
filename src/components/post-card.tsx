@@ -6,6 +6,7 @@ type PostCardProps = {
   title: string
   description: string
   category: string
+  locationDepartment?: string | null
   price: number
   imageUrl: string | null
   href?: string
@@ -37,6 +38,7 @@ export default function PostCard({
   title,
   description,
   category,
+  locationDepartment,
   price,
   imageUrl,
   href,
@@ -78,10 +80,12 @@ export default function PostCard({
         <p className="line-clamp-3 text-sm leading-6 text-[var(--foreground-muted)]">{description}</p>
 
         <div className="mt-auto flex items-center justify-between border-t border-[var(--line)] pt-3 text-sm text-[var(--foreground-muted)]">
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-full bg-[var(--brand-accent)]" />
-            San Juan, AR
-          </span>
+          {locationDepartment ? (
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden="true">📍</span>
+              {locationDepartment}
+            </span>
+          ) : <span />}
           <span className="text-xs text-[var(--foreground-muted)]">{formatPublishedAt(publishedAt)}</span>
         </div>
       </div>

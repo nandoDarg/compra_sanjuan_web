@@ -65,6 +65,8 @@ export default function CreatePostPage() {
         price: formData.price,
         category: formData.category,
         whatsapp_number: formData.whatsappNumber,
+        location_department: formData.locationDepartment,
+        location_maps_url: formData.locationMapsUrl,
         image_url: primaryImage.publicUrl,
       })
       .select('id')
