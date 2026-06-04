@@ -70,7 +70,6 @@ export default function Navbar() {
         {isFeedRoute ? (
           <div className="order-3 w-full sm:order-2 sm:mx-4 sm:flex-1 sm:max-w-2xl">
             <SearchBar
-              key={queryFromUrl}
               initialValue={queryFromUrl}
               onChange={handleSearchChange}
             />

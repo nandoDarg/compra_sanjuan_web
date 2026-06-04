@@ -1,0 +1,85 @@
+CONTEXTO DE CONTINUIDAD PARA OTRO AGENTE IA
+Fecha: 2026-06-04
+Proyecto: compra_sanjuan_web (tratohechoSJ)
+
+1) Objetivo del producto
+- Marketplace local (San Juan) para publicar, explorar y contactar vendedores.
+- Flujo principal: feed publico -> detalle -> contacto WhatsApp.
+- Rutas privadas: crear/editar/mis publicaciones.
+
+2) Stack actual
+- Next.js 16.2.6 (App Router)
+- React 19.2.4 + TypeScript
+- Supabase (Auth, Postgres, Storage)
+- Tailwind CSS v4
+- PostHog analytics
+- react-easy-crop para recorte de imagenes
+
+3) Cambios recientes ya aplicados y pusheados
+- Commit 08959e0:
+  - mejoras UX de imagenes (detalle + modal zoom + flechas)
+  - mejoras en feed de fallback de busqueda
+  - script de seed de publicaciones con Unsplash
+- Commit 6fac8c1:
+  - soporte de identidad publica de vendedor con display_name
+  - registro pide nombre de usuario (3 a 40 caracteres)
+  - detalle de publicacion muestra display_name y no expone user_id/UUID
+  - migracion SQL de profiles/display_name
+
+4) Archivos clave que ya quedaron
+- SQL migracion perfiles:
+  - docs/sql/20260604_profiles_display_name.sql
+- Registro actualizado:
+  - src/app/register/page.tsx
+- Detalle de publicacion (vendedor visible):
+  - src/app/post/[id]/page.tsx
+- Seed de publicaciones:
+  - scripts/seed-posts.ts
+- Guia DB actualizada:
+  - docs/database.md
+- Tutorial seed:
+  - docs/tutorial-seed-publicaciones.txt
+5) IMPORTANTISIMO para que funcione en produccion
+- Falta ejecutar en Supabase SQL Editor:
+  - docs/sql/20260604_profiles_display_name.sql
+- Sin esa migracion, el detalle puede caer al fallback "Usuario" y no mostrar nombre real.
+
+6) Reglas funcionales ya implementadas para identidad publica
+- Nunca mostrar IDs internos/UUID en UI publica de vendedor.
+- Fallback obligatorio para usuarios antiguos sin perfil:
+  - mostrar "Usuario".
+
+7) Estado de calidad (ultimo chequeo)
+- TypeScript: OK
+- ESLint: OK en archivos modificados
+- Nota: en detalle de publicacion se usa regla deshabilitada para img nativo por decision UX actual.
+
+8) Contexto de busqueda/fallback en feed
+- Cuando no hay resultados exactos, se muestra panel con:
+  - encabezado con termino buscado
+  - chips de categorias reales + chip "Ver todo"
+- Se removio texto viejo y botones "Probar: ...".
+
+9) Script de seed (resumen de uso)
+- Crea/reutiliza 8 usuarios ficticios en Auth.
+- Inserta >= 40 publicaciones realistas.
+- Sube 2-4 imagenes por publicacion desde Unsplash al bucket post-images.
+- Inserta vehicle_details para categorias vehiculares.
+- Variables requeridas:
+  - SUPABASE_URL (o NEXT_PUBLIC_SUPABASE_URL)
+  - SUPABASE_SERVICE_ROLE_KEY
+  - UNSPLASH_ACCESS_KEY
+- Ejecucion:
+  - npx tsx scripts/seed-posts.ts
+
+10) Pendientes recomendados inmediatos
+- Ejecutar migracion de profiles en entorno productivo.
+- Probar registro nuevo (con y sin confirmacion email) y validar display_name final.
+- Revisar si se quiere una pantalla de edicion de perfil (ya preparada a nivel DB/policies).
+- Evaluar reemplazo progresivo de img por next/image donde no afecte UX de zoom.
+
+11) Convenciones del proyecto
+- UI mobile-first, componentes thsj-panel/thsj-chip/thsj-btn/thsj-input.
+- No exponer identificadores internos al usuario final.
+- Mantener rutas publicas: / y /post/[id].
+- Mantener busqueda sin dead-end (fallback visible).

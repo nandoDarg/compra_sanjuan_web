@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 type SearchBarProps = {
   initialValue?: string
@@ -12,6 +12,14 @@ export default function SearchBar({
   onChange,
 }: SearchBarProps) {
   const [value, setValue] = useState(initialValue)
+  const prevInitialValue = useRef(initialValue)
+
+  useEffect(() => {
+    if (initialValue === '' && prevInitialValue.current !== '') {
+      setValue('')
+    }
+    prevInitialValue.current = initialValue
+  }, [initialValue])
 
   return (
     <label className="relative flex w-full items-center">
