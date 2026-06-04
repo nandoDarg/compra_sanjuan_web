@@ -96,7 +96,7 @@ export default function EditPostPage() {
       return { error: 'No hay sesion activa para editar la publicacion.' }
     }
 
-    if (formData.imageFiles.some((file) => file.size > MAX_IMAGE_SIZE_BYTES)) {
+    if (formData.newImages.some(({ file }) => file.size > MAX_IMAGE_SIZE_BYTES)) {
       return { error: 'Cada imagen debe pesar como maximo 2.5MB.' }
     }
 
@@ -111,11 +111,11 @@ export default function EditPostPage() {
       ...((existingExtraImages as PostImage[] | null)?.map((item) => item.image_url) ?? []),
     ].filter((value): value is string => Boolean(value))
 
-    const uploadedImages: Array<{ filePath: string; publicUrl: string }> = []
+    const uploadedImages: Array<{ filePath: string; publicUrl: string; imageId: string }> = []
 
-    if (formData.imageFiles.length > 0) {
+    if (formData.newImages.length > 0) {
 
-      for (const imageFile of formData.imageFiles) {
+      for (const { id: imageId, file: imageFile } of formData.newImages) {
         const safeFileName = imageFile.name.replace(/\s+/g, '-').toLowerCase()
         const newPath = `${user.id}/${Date.now()}-${safeFileName}`
 
@@ -131,15 +131,29 @@ export default function EditPostPage() {
         }
 
         const { data: publicUrlData } = supabase.storage.from('post-images').getPublicUrl(newPath)
-        uploadedImages.push({ filePath: newPath, publicUrl: publicUrlData.publicUrl })
+        uploadedImages.push({ filePath: newPath, publicUrl: publicUrlData.publicUrl, imageId })
       }
     }
 
-    const keptExistingGallery = formData.keptExistingImageUrls.filter((url) =>
-      previousGallery.includes(url)
+    const uploadedUrlById = new Map(
+      uploadedImages.map((image) => [image.imageId, image.publicUrl])
     )
-    const uploadedUrls = uploadedImages.map((image) => image.publicUrl)
-    const finalGallery = [...keptExistingGallery, ...uploadedUrls]
+
+    const finalGallery = formData.galleryOrder
+      .map((token) => {
+        if (token.startsWith('existing::')) {
+          const url = token.slice('existing::'.length)
+          return previousGallery.includes(url) ? url : null
+        }
+
+        if (token.startsWith('new::')) {
+          const imageId = token.slice('new::'.length)
+          return uploadedUrlById.get(imageId) ?? null
+        }
+
+        return null
+      })
+      .filter((url): url is string => Boolean(url))
 
     const primaryImageUrl = finalGallery[0] ?? null
     const finalExtraImageUrls = finalGallery.slice(1)
@@ -201,14 +215,14 @@ export default function EditPostPage() {
       if (vehicleDetailsError) {
         return { error: 'No se pudo actualizar la informacion del vehiculo.' }
       }
-    } else {
+    } else if (vehicleDetails || isVehicleCategory(post.category)) {
       const { error: vehicleDetailsDeleteError } = await supabase
         .from('vehicle_details')
         .delete()
         .eq('post_id', post.id)
 
       if (vehicleDetailsDeleteError) {
-        return { error: 'No se pudo limpiar la informacion del vehiculo.' }
+        console.warn('No se pudo limpiar la informacion del vehiculo')
       }
     }
 
@@ -255,6 +269,7 @@ export default function EditPostPage() {
       heading="Editar publicacion"
       description="Actualiza la informacion de tu producto para mantener tu anuncio al dia."
       submitLabel="Guardar cambios"
+      draftStorageKey={`thsj:draft:edit-post:${post.id}`}
       cancelHref="/my-posts"
       initialValues={{
         title: post.title,

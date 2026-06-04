@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
+import { mapSupabaseAuthErrorMessage } from '@/lib/auth-errors'
 
 export default function LoginPage() {
   const supabase = createClient()
@@ -26,11 +27,11 @@ export default function LoginPage() {
 
     if (normalized.includes('email not confirmed')) {
       setShowResend(true)
-      return 'Tu cuenta aun no fue confirmada. Revisa tu correo o reenvia el email de verificacion.'
+      return mapSupabaseAuthErrorMessage(rawMessage)
     }
 
     setShowResend(false)
-    return rawMessage
+    return mapSupabaseAuthErrorMessage(rawMessage)
   }
 
   const handleResendConfirmation = async () => {
@@ -56,7 +57,7 @@ export default function LoginPage() {
     setResending(false)
 
     if (resendError) {
-      setError(resendError.message)
+      setError(mapSupabaseAuthErrorMessage(resendError.message))
       return
     }
 

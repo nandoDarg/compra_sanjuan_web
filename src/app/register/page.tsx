@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
+import { mapSupabaseAuthErrorMessage } from '@/lib/auth-errors'
 
 export default function RegisterPage() {
   const supabase = createClient()
@@ -48,7 +49,7 @@ export default function RegisterPage() {
     setLoading(false)
 
     if (error) {
-      setError(error.message)
+      setError(mapSupabaseAuthErrorMessage(error.message))
     } else {
       trackEvent(ANALYTICS_EVENTS.USER_REGISTERED, {
         method: 'email_password',

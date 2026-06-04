@@ -13,11 +13,11 @@ export default function CreatePostPage() {
   const router = useRouter()
 
   const handleSubmit = async (formData: PostFormSubmitData) => {
-    if (formData.imageFiles.length === 0) {
+    if (formData.newImages.length === 0) {
       return { error: 'Selecciona al menos una imagen para la publicacion.' }
     }
 
-    if (formData.imageFiles.some((file) => file.size > MAX_IMAGE_SIZE_BYTES)) {
+    if (formData.newImages.some(({ file }) => file.size > MAX_IMAGE_SIZE_BYTES)) {
       return { error: 'Cada imagen debe pesar como maximo 2.5MB.' }
     }
 
@@ -32,7 +32,7 @@ export default function CreatePostPage() {
 
     const uploadedImages: Array<{ filePath: string; publicUrl: string }> = []
 
-    for (const imageFile of formData.imageFiles) {
+    for (const { file: imageFile } of formData.newImages) {
       const safeFileName = imageFile.name.replace(/\s+/g, '-').toLowerCase()
       const filePath = `${user.id}/${Date.now()}-${safeFileName}`
 
@@ -131,7 +131,7 @@ export default function CreatePostPage() {
     trackEvent(ANALYTICS_EVENTS.POST_CREATED, {
       category: formData.category,
       price: Number(formData.price),
-      has_image: formData.imageFiles.length > 0,
+      has_image: formData.newImages.length > 0,
     })
 
     router.push('/')
@@ -144,6 +144,7 @@ export default function CreatePostPage() {
       heading="Crear publicacion"
       description="Completa los datos del producto para publicarlo en el feed principal."
       submitLabel="Publicar"
+      draftStorageKey="thsj:draft:create-post"
       cancelHref="/"
       onSubmit={handleSubmit}
     />

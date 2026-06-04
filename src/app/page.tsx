@@ -37,23 +37,6 @@ const INTERACTIONS_MAX_ITEMS = 40
 const SEARCH_HISTORY_STORAGE_KEY = 'thsj:search-history'
 const INTERACTION_HISTORY_STORAGE_KEY = 'thsj:interaction-history'
 
-const STOP_WORDS = new Set([
-  'de',
-  'la',
-  'el',
-  'y',
-  'en',
-  'con',
-  'para',
-  'por',
-  'sin',
-  'una',
-  'uno',
-  'un',
-  'los',
-  'las',
-])
-
 const normalizeText = (value: string) =>
   value
     .toLowerCase()
@@ -158,42 +141,6 @@ const scorePost = (post: Post, query: string, tokens: string[]) => {
   return score
 }
 
-const buildSuggestions = (
-  query: string,
-  fallbackPosts: Post[],
-  selectedCategory: string,
-  searchHistoryTerms: string[]
-) => {
-  const currentTokens = new Set(splitTokens(query))
-  const terms: string[] = []
-
-  for (const post of fallbackPosts) {
-    terms.push(post.category)
-
-    const titleTokens = splitTokens(post.title).filter(
-      (token) => token.length >= 3 && !STOP_WORDS.has(token)
-    )
-    terms.push(...titleTokens)
-  }
-
-  if (selectedCategory !== 'Todas') {
-    terms.push(selectedCategory)
-  }
-
-  terms.push(...searchHistoryTerms)
-
-  const unique = Array.from(
-    new Set(
-      terms
-        .map((term) => term.trim())
-        .filter((term) => term.length > 0)
-        .filter((term) => !currentTokens.has(normalizeText(term)))
-    )
-  )
-
-  return unique.slice(0, SUGGESTION_LIMIT)
-}
-
 const scoreByHistory = (
   post: Post,
   searchHistoryTerms: string[],
@@ -253,7 +200,6 @@ function HomeContent() {
   const [selectedCategory, setSelectedCategory] = useState('Todas')
   const [sortBy, setSortBy] = useState<SortOption>('recent')
   const [fallbackMode, setFallbackMode] = useState<FallbackMode>('none')
-  const [suggestions, setSuggestions] = useState<string[]>([])
   const [viewerId, setViewerId] = useState('guest')
   const [searchHistoryTerms, setSearchHistoryTerms] = useState<string[]>([])
   const [interactionCategories, setInteractionCategories] = useState<string[]>([])
@@ -375,7 +321,6 @@ function HomeContent() {
       setLoading(true)
       setFeedError(null)
       setFallbackMode('none')
-      setSuggestions([])
 
       let query = supabase
         .from('posts')
@@ -501,14 +446,6 @@ function HomeContent() {
 
           setPosts(visibleFallbackPosts)
           setFallbackMode(visibleFallbackPosts.length > 0 ? activeFallbackMode : 'none')
-          setSuggestions(
-            buildSuggestions(
-              searchQuery,
-              visibleFallbackPosts,
-              selectedCategory,
-              searchHistoryTerms
-            )
-          )
         } else {
           setPosts([])
         }
@@ -536,6 +473,11 @@ function HomeContent() {
 
   const hasFilters =
     searchQuery.length > 0 || selectedCategory !== 'Todas' || sortBy !== 'recent'
+
+  const fallbackCategorySuggestions = useMemo(
+    () => categories.filter((category) => category !== 'Todas').slice(0, SUGGESTION_LIMIT),
+    [categories]
+  )
 
   const clearFilters = () => {
     updateSearchQuery('')
@@ -594,28 +536,30 @@ function HomeContent() {
       {fallbackMode !== 'none' ? (
         <div className="thsj-panel p-4 sm:p-5">
           <p className="text-sm font-semibold text-foreground">
-            Dale una mirada a esto que encontramos para vos
+            No encontramos &quot;{searchQuery}&quot; — explorá esto que encontramos para vos:
           </p>
-          {fallbackMode === 'history' ? (
-            <p className="mt-1 text-sm text-(--foreground-muted)">
-              Priorizamos lo que mas se parece a tus intereses segun tu historial y navegacion.
-            </p>
-          ) : null}
-          {suggestions.length > 0 ? (
+          {fallbackCategorySuggestions.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">
-              {suggestions.map((term) => (
+              {fallbackCategorySuggestions.map((category) => (
                 <button
-                  key={term}
+                  key={category}
                   type="button"
                   onClick={() => {
-                    updateSearchQuery(term)
-                    registerSearchTerm(term)
+                    updateSearchQuery('')
+                    handleCategoryChange(category)
                   }}
                   className="thsj-chip"
                 >
-                  Probar: {term}
+                  {category}
                 </button>
               ))}
+              <button
+                type="button"
+                onClick={() => updateSearchQuery('')}
+                className="thsj-chip"
+              >
+                Ver todo
+              </button>
             </div>
           ) : null}
         </div>

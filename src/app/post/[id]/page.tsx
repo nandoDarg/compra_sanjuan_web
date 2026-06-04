@@ -68,7 +68,17 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [shareFeedback, setShareFeedback] = useState<string | null>(null)
+  const [isZoomModalOpen, setIsZoomModalOpen] = useState(false)
+  const [lensState, setLensState] = useState<{
+    left: number
+    top: number
+    imgW: number
+    imgH: number
+    lensW: number
+    lensH: number
+  } | null>(null)
   const trackedPostViewIdRef = useRef<string | null>(null)
+  const mainImageContainerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const loadPost = async () => {
@@ -138,6 +148,29 @@ export default function PostDetailPage() {
     })
     trackedPostViewIdRef.current = post.id
   }, [post])
+
+  useEffect(() => {
+    if (!isZoomModalOpen) {
+      return
+    }
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setIsZoomModalOpen(false)
+        setLensState(null)
+      }
+    }
+
+    window.addEventListener('keydown', handleEscape)
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+      window.removeEventListener('keydown', handleEscape)
+    }
+  }, [isZoomModalOpen])
 
   const handleShare = async () => {
     if (!post) {
@@ -239,6 +272,46 @@ export default function PostDetailPage() {
     post.location_maps_url?.trim() && isValidGoogleMapsUrl(post.location_maps_url)
   )
 
+  const ZOOM_FACTOR = 2.4
+
+  const canNavigateImages = postImages.length > 1
+
+  const goToPreviousImage = () => {
+    if (!canNavigateImages) {
+      return
+    }
+
+    setSelectedImageIndex((previous) => (previous - 1 + postImages.length) % postImages.length)
+    setLensState(null)
+  }
+
+  const goToNextImage = () => {
+    if (!canNavigateImages) {
+      return
+    }
+
+    setSelectedImageIndex((previous) => (previous + 1) % postImages.length)
+    setLensState(null)
+  }
+
+  const handleMagnifierMove = (event: React.MouseEvent<HTMLDivElement>) => {
+    if (!isZoomModalOpen || !mainImageContainerRef.current) {
+      return
+    }
+
+    const rect = mainImageContainerRef.current.getBoundingClientRect()
+    const imgW = rect.width
+    const imgH = rect.height
+    const lensW = Math.max(140, Math.min(imgW * 0.34, 280))
+    const lensH = Math.max(110, Math.min(imgH * 0.34, 220))
+    const mx = event.clientX - rect.left
+    const my = event.clientY - rect.top
+    const left = Math.min(imgW - lensW, Math.max(0, mx - lensW / 2))
+    const top = Math.min(imgH - lensH, Math.max(0, my - lensH / 2))
+
+    setLensState({ left, top, imgW, imgH, lensW, lensH })
+  }
+
   return (
     <section className="flex w-full flex-1 flex-col gap-6 py-6 sm:py-8">
       <div>
@@ -251,13 +324,62 @@ export default function PostDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1.35fr_1fr]">
+        <div className="relative">
         <article className="thsj-card overflow-hidden">
           {postImages.length > 0 ? (
-            <img
-              src={postImages[selectedImageIndex]}
-              alt={post.title}
-              className="h-72 w-full object-cover sm:h-105 lg:h-130"
-            />
+            <div className="relative w-full overflow-hidden">
+              <img
+                src={postImages[selectedImageIndex]}
+                alt={post.title}
+                className="h-72 w-full cursor-zoom-in object-cover sm:h-105 lg:h-130"
+                onClick={() => {
+                  setIsZoomModalOpen(true)
+                  setLensState(null)
+                }}
+              />
+
+              <button
+                type="button"
+                onClick={() => {
+                  setIsZoomModalOpen(true)
+                  setLensState(null)
+                }}
+                className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-(--line) bg-white/90 text-foreground shadow transition hover:bg-white"
+                aria-label="Ampliar imagen"
+                title="Ampliar imagen"
+              >
+                <svg className="h-4.5 w-4.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <circle cx="11" cy="11" r="7" />
+                  <path d="M20 20l-3.5-3.5" />
+                </svg>
+              </button>
+
+              {canNavigateImages ? (
+                <button
+                  type="button"
+                  onClick={goToPreviousImage}
+                  className="absolute left-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/40 bg-black/35 text-white shadow transition hover:bg-black/50"
+                  aria-label="Imagen anterior"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                    <path d="M15 6l-6 6 6 6" />
+                  </svg>
+                </button>
+              ) : null}
+
+              {canNavigateImages ? (
+                <button
+                  type="button"
+                  onClick={goToNextImage}
+                  className="absolute right-3 top-1/2 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full border border-white/40 bg-black/35 text-white shadow transition hover:bg-black/50"
+                  aria-label="Imagen siguiente"
+                >
+                  <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                    <path d="M9 6l6 6-6 6" />
+                  </svg>
+                </button>
+              ) : null}
+            </div>
           ) : (
             <div className="flex h-72 items-center justify-center bg-(--background-muted) text-sm text-(--foreground-muted) sm:h-105 lg:h-130">
               Sin imagen disponible
@@ -271,6 +393,8 @@ export default function PostDetailPage() {
                   key={`${imageUrl}-${index}`}
                   type="button"
                   onClick={() => setSelectedImageIndex(index)}
+                  onMouseEnter={() => setSelectedImageIndex(index)}
+                  onFocus={() => setSelectedImageIndex(index)}
                   className={`overflow-hidden rounded-lg border transition ${
                     selectedImageIndex === index
                       ? 'border-(--brand-primary) ring-1 ring-(--brand-primary)'
@@ -287,6 +411,8 @@ export default function PostDetailPage() {
             </div>
           ) : null}
         </article>
+
+        </div>
 
         <aside className="thsj-panel p-5 sm:p-6">
           <div className="thsj-chip inline-flex items-center px-3 py-1 text-xs font-medium">
@@ -444,6 +570,103 @@ export default function PostDetailPage() {
           </div>
         )}
       </div>
+
+      {isZoomModalOpen ? (
+        <div
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/85 p-4"
+          onClick={() => {
+            setIsZoomModalOpen(false)
+            setLensState(null)
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => {
+              setIsZoomModalOpen(false)
+              setLensState(null)
+            }}
+            className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-black/55 text-2xl leading-none text-white hover:bg-black/70"
+            aria-label="Cerrar vista ampliada"
+          >
+            <svg className="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+              <path d="M6 6l12 12" />
+              <path d="M18 6L6 18" />
+            </svg>
+          </button>
+
+          {canNavigateImages ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                goToPreviousImage()
+              }}
+              className="absolute left-4 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/55 text-white hover:bg-black/70"
+              aria-label="Imagen anterior"
+            >
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                <path d="M15 6l-6 6 6 6" />
+              </svg>
+            </button>
+          ) : null}
+
+          {canNavigateImages ? (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                goToNextImage()
+              }}
+              className="absolute right-4 top-1/2 inline-flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/30 bg-black/55 text-white hover:bg-black/70"
+              aria-label="Imagen siguiente"
+            >
+              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" aria-hidden="true">
+                <path d="M9 6l6 6-6 6" />
+              </svg>
+            </button>
+          ) : null}
+
+          <div
+            className="relative inline-block max-h-[90vh] max-w-[95vw] overflow-hidden rounded-xl"
+            ref={mainImageContainerRef}
+            onClick={(event) => event.stopPropagation()}
+            onMouseMove={handleMagnifierMove}
+            onMouseLeave={() => setLensState(null)}
+          >
+            <img
+              src={postImages[selectedImageIndex]}
+              alt={post.title}
+              className="block max-h-[90vh] max-w-[95vw] object-contain"
+            />
+
+            {lensState ? (
+              <div
+                className="pointer-events-none absolute overflow-hidden border-2 border-white/95"
+                style={{
+                  left: lensState.left,
+                  top: lensState.top,
+                  width: lensState.lensW,
+                  height: lensState.lensH,
+                  backgroundColor: 'rgba(0,0,0,0.25)',
+                }}
+              >
+                <img
+                  src={postImages[selectedImageIndex]}
+                  alt="Zoom dinamico"
+                  className="absolute left-0 top-0 h-full w-full object-cover"
+                  style={{
+                    width: lensState.imgW * ZOOM_FACTOR,
+                    height: lensState.imgH * ZOOM_FACTOR,
+                    maxWidth: 'none',
+                    transform: `translate(${-lensState.left * ZOOM_FACTOR}px, ${-lensState.top * ZOOM_FACTOR}px)`,
+                    transformOrigin: 'top left',
+                  }}
+                />
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
     </section>
   )
 }

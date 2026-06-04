@@ -2,6 +2,8 @@
 
 import Link from 'next/link'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import Cropper from 'react-easy-crop'
+import type { Area, Point } from 'react-easy-crop'
 import { OTHER_CATEGORY_VALUE, PREDEFINED_POST_CATEGORIES } from '@/lib/post-categories'
 import { normalizeCategoryValue } from '@/lib/category-normalization'
 import {
@@ -44,10 +46,24 @@ export type PostFormSubmitData = {
   category: string
   whatsappNumber: string
   imageFiles: File[]
+  newImages: Array<{ id: string; file: File }>
+  galleryOrder: string[]
   keptExistingImageUrls: string[]
   vehicleDetails: VehicleDetailsInput | null
   locationDepartment: string
   locationMapsUrl: string | null
+}
+
+type GalleryItem = {
+  id: string
+  kind: 'existing' | 'new'
+  url: string
+  file?: File
+}
+
+type CropTargetState = {
+  itemId: string
+  itemUrl: string
 }
 
 type PostFormProps = {
@@ -55,6 +71,7 @@ type PostFormProps = {
   heading: string
   description: string
   submitLabel: string
+  draftStorageKey?: string
   initialValues?: {
     title: string
     description: string
@@ -84,6 +101,141 @@ const MAX_IMAGES = 10
 const MAX_IMAGE_SIZE_BYTES = Math.round(2.5 * 1024 * 1024)
 const MAX_IMAGE_DIMENSION = 2000
 const { min: MIN_VEHICLE_YEAR, max: MAX_VEHICLE_YEAR } = getVehicleYearRange()
+
+type PostFormDraft = {
+  form: PostFormValues
+  selectedCategory: string
+  customCategory: string
+  vehicleForm: VehicleFormValues
+  existingImageUrls: string[]
+}
+
+type FormChangeSnapshot = {
+  form: PostFormValues
+  selectedCategory: string
+  customCategory: string
+  vehicleForm: VehicleFormValues
+  gallery: Array<{ kind: GalleryItem['kind']; value: string }>
+}
+
+const VEHICLE_PHOTO_ORDER = [
+  'Frente',
+  'Frente 3/4',
+  'Lateral izquierdo',
+  'Lateral derecho',
+  'Trasera',
+  'Interior',
+  'Tablero',
+  'Motor',
+] as const
+
+function readDraft(key: string) {
+  if (typeof window === 'undefined') {
+    return null as PostFormDraft | null
+  }
+
+  try {
+    const raw = window.localStorage.getItem(key)
+    if (!raw) {
+      return null
+    }
+
+    return JSON.parse(raw) as PostFormDraft
+  } catch {
+    return null
+  }
+}
+
+function buildGalleryItemId(prefix: string) {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return `${prefix}-${crypto.randomUUID()}`
+  }
+
+  return `${prefix}-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function toSnapshotKey(snapshot: FormChangeSnapshot) {
+  return JSON.stringify(snapshot)
+}
+
+function buildFormChangeSnapshot(args: {
+  form: PostFormValues
+  selectedCategory: string
+  customCategory: string
+  vehicleForm: VehicleFormValues
+  galleryItems: GalleryItem[]
+}): FormChangeSnapshot {
+  return {
+    form: args.form,
+    selectedCategory: args.selectedCategory,
+    customCategory: args.customCategory,
+    vehicleForm: args.vehicleForm,
+    gallery: args.galleryItems.map((item) => ({
+      kind: item.kind,
+      value:
+        item.kind === 'existing'
+          ? item.url
+          : `${item.file?.name ?? item.id}-${item.file?.size ?? 0}-${item.file?.lastModified ?? 0}`,
+    })),
+  }
+}
+
+function reorderItems<T extends { id: string }>(items: T[], activeId: string, overId: string) {
+  const fromIndex = items.findIndex((item) => item.id === activeId)
+  const toIndex = items.findIndex((item) => item.id === overId)
+
+  if (fromIndex === -1 || toIndex === -1 || fromIndex === toIndex) {
+    return items
+  }
+
+  const next = [...items]
+  const [moved] = next.splice(fromIndex, 1)
+  next.splice(toIndex, 0, moved)
+  return next
+}
+
+async function loadImageFromUrl(url: string) {
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image()
+    img.crossOrigin = 'anonymous'
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('No se pudo cargar la imagen para editarla.'))
+    img.src = url
+  })
+
+  return image
+}
+
+async function buildCroppedFile(imageUrl: string, cropArea: Area, baseName: string) {
+  const image = await loadImageFromUrl(imageUrl)
+  const canvas = document.createElement('canvas')
+  canvas.width = Math.max(1, Math.round(cropArea.width))
+  canvas.height = Math.max(1, Math.round(cropArea.height))
+
+  const context = canvas.getContext('2d')
+  if (!context) {
+    throw new Error('No se pudo preparar la edicion de imagen.')
+  }
+
+  context.drawImage(
+    image,
+    cropArea.x,
+    cropArea.y,
+    cropArea.width,
+    cropArea.height,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  )
+
+  const blob = await canvasToBlob(canvas, 0.92)
+  const croppedName = `${replaceExtension(baseName, 'jpg')}`
+  return new File([blob], croppedName, {
+    type: 'image/jpeg',
+    lastModified: Date.now(),
+  })
+}
 
 function replaceExtension(fileName: string, extension: string) {
   const dotIndex = fileName.lastIndexOf('.')
@@ -189,6 +341,7 @@ export default function PostForm({
   heading,
   description,
   submitLabel,
+  draftStorageKey,
   initialValues,
   cancelHref = '/',
   onSubmit,
@@ -196,7 +349,7 @@ export default function PostForm({
   const isPredefinedCategory = (value: string) =>
     PREDEFINED_POST_CATEGORIES.includes(value as (typeof PREDEFINED_POST_CATEGORIES)[number])
 
-  const [form, setForm] = useState<PostFormValues>(() => {
+  const defaultFormValues = useMemo<PostFormValues>(() => {
     if (!initialValues) {
       return emptyValues
     }
@@ -209,9 +362,9 @@ export default function PostForm({
       locationDepartment: initialValues.locationDepartment ?? '',
       locationMapsUrl: initialValues.locationMapsUrl ?? '',
     }
-  })
+  }, [initialValues])
 
-  const [selectedCategory, setSelectedCategory] = useState(() => {
+  const defaultSelectedCategory = useMemo(() => {
     if (!initialValues?.category) {
       return ''
     }
@@ -219,30 +372,17 @@ export default function PostForm({
     return isPredefinedCategory(initialValues.category)
       ? initialValues.category
       : OTHER_CATEGORY_VALUE
-  })
-  const [customCategory, setCustomCategory] = useState(() => {
+  }, [initialValues])
+
+  const defaultCustomCategory = useMemo(() => {
     if (!initialValues?.category || isPredefinedCategory(initialValues.category)) {
       return ''
     }
 
     return initialValues.category
-  })
+  }, [initialValues])
 
-  const [imageFiles, setImageFiles] = useState<File[]>([])
-  const [existingImageUrls, setExistingImageUrls] = useState<string[]>(() => {
-    if (!initialValues?.existingImageUrls || initialValues.existingImageUrls.length === 0) {
-      return initialValues?.imageUrl ? [initialValues.imageUrl] : []
-    }
-
-    return initialValues.existingImageUrls
-  })
-  const [imageImportUrl, setImageImportUrl] = useState('')
-  const [importingUrl, setImportingUrl] = useState(false)
-  const [processingImages, setProcessingImages] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string | null>(null)
-  const imageInputRef = useRef<HTMLInputElement | null>(null)
-  const [vehicleForm, setVehicleForm] = useState<VehicleFormValues>(() => {
+  const defaultVehicleForm = useMemo<VehicleFormValues>(() => {
     const details = initialValues?.vehicleDetails
 
     return {
@@ -259,22 +399,125 @@ export default function PostForm({
       condition: details?.condition ?? '',
       firstOwner: typeof details?.first_owner === 'boolean' ? (details.first_owner ? 'Si' : 'No') : '',
     }
-  })
+  }, [initialValues])
 
-  const newImagePreviewUrls = useMemo(
-    () => imageFiles.map((file) => URL.createObjectURL(file)),
-    [imageFiles]
+  const defaultExistingImageUrls = useMemo(() => {
+    if (!initialValues?.existingImageUrls || initialValues.existingImageUrls.length === 0) {
+      return initialValues?.imageUrl ? [initialValues.imageUrl] : []
+    }
+
+    return initialValues.existingImageUrls
+  }, [initialValues])
+
+  const draft = useMemo(
+    () => (draftStorageKey ? readDraft(draftStorageKey) : null),
+    [draftStorageKey]
   )
+
+  const [form, setForm] = useState<PostFormValues>(() => draft?.form ?? defaultFormValues)
+
+  const [selectedCategory, setSelectedCategory] = useState(() => draft?.selectedCategory ?? defaultSelectedCategory)
+  const [customCategory, setCustomCategory] = useState(() => draft?.customCategory ?? defaultCustomCategory)
+
+  const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(() =>
+    (draft?.existingImageUrls ?? defaultExistingImageUrls).map((url) => ({
+      id: buildGalleryItemId('existing'),
+      kind: 'existing',
+      url,
+    }))
+  )
+  const [imageImportUrl, setImageImportUrl] = useState('')
+  const [importingUrl, setImportingUrl] = useState(false)
+  const [processingImages, setProcessingImages] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [draggingImageId, setDraggingImageId] = useState<string | null>(null)
+  const [cropTarget, setCropTarget] = useState<CropTargetState | null>(null)
+  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 })
+  const [cropZoom, setCropZoom] = useState(1)
+  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
+  const [applyingCrop, setApplyingCrop] = useState(false)
+  const [lastSavedSnapshotKey, setLastSavedSnapshotKey] = useState<string | null>(null)
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
+  const [vehicleForm, setVehicleForm] = useState<VehicleFormValues>(() => draft?.vehicleForm ?? defaultVehicleForm)
+
+  const initialSnapshotKey = useMemo(
+    () =>
+      toSnapshotKey(
+        buildFormChangeSnapshot({
+          form: defaultFormValues,
+          selectedCategory: defaultSelectedCategory,
+          customCategory: defaultCustomCategory,
+          vehicleForm: defaultVehicleForm,
+          galleryItems: defaultExistingImageUrls.map((url) => ({
+            id: `existing-snapshot-${url}`,
+            kind: 'existing' as const,
+            url,
+          })),
+        })
+      ),
+    [
+      defaultCustomCategory,
+      defaultExistingImageUrls,
+      defaultFormValues,
+      defaultSelectedCategory,
+      defaultVehicleForm,
+    ]
+  )
+
+  const currentSnapshotKey = useMemo(
+    () =>
+      toSnapshotKey(
+        buildFormChangeSnapshot({
+          form,
+          selectedCategory,
+          customCategory,
+          vehicleForm,
+          galleryItems,
+        })
+      ),
+    [customCategory, form, galleryItems, selectedCategory, vehicleForm]
+  )
+
+  const hasPendingChanges =
+    mode === 'create' ? true : currentSnapshotKey !== (lastSavedSnapshotKey ?? initialSnapshotKey)
+
+  useEffect(() => {
+    if (!draftStorageKey || typeof window === 'undefined') {
+      return
+    }
+
+    const payload: PostFormDraft = {
+      form,
+      selectedCategory,
+      customCategory,
+      vehicleForm,
+      existingImageUrls: galleryItems
+        .filter((item) => item.kind === 'existing')
+        .map((item) => item.url),
+    }
+
+    window.localStorage.setItem(draftStorageKey, JSON.stringify(payload))
+  }, [
+    customCategory,
+    draftStorageKey,
+    form,
+    galleryItems,
+    selectedCategory,
+    vehicleForm,
+  ])
 
   useEffect(() => {
     return () => {
-      for (const previewUrl of newImagePreviewUrls) {
-        URL.revokeObjectURL(previewUrl)
+      for (const item of galleryItems) {
+        if (item.kind === 'new') {
+          URL.revokeObjectURL(item.url)
+        }
       }
     }
-  }, [newImagePreviewUrls])
+  }, [galleryItems])
 
-  const needsImage = mode === 'create' && imageFiles.length === 0
+  const needsImage = mode === 'create' && galleryItems.length === 0
   const effectiveCategory = normalizeCategoryValue(
     selectedCategory === OTHER_CATEGORY_VALUE
       ? customCategory.trim()
@@ -292,17 +535,21 @@ export default function PostForm({
 
     const errorMessages: string[] = []
     const dedupeKey = (file: File) => `${file.name}-${file.size}-${file.lastModified}`
-    const existingKeys = new Set(imageFiles.map(dedupeKey))
+    const existingNewFileKeys = new Set(
+      galleryItems
+        .filter((item) => item.kind === 'new' && item.file)
+        .map((item) => dedupeKey(item.file as File))
+    )
     const preparedFiles: File[] = []
 
     for (const incomingFile of incoming) {
       const key = dedupeKey(incomingFile)
 
-      if (existingKeys.has(key)) {
+      if (existingNewFileKeys.has(key)) {
         continue
       }
 
-      if (existingKeys.size + preparedFiles.length >= MAX_IMAGES) {
+      if (galleryItems.length + preparedFiles.length >= MAX_IMAGES) {
         errorMessages.push(`Solo puedes subir hasta ${MAX_IMAGES} imagenes.`)
         break
       }
@@ -310,25 +557,22 @@ export default function PostForm({
       try {
         const compressed = await ensureFileWithinBudget(incomingFile)
         preparedFiles.push(compressed)
-        existingKeys.add(key)
+        existingNewFileKeys.add(key)
       } catch (error) {
         errorMessages.push(error instanceof Error ? error.message : 'No se pudo procesar una imagen.')
       }
     }
 
-    setImageFiles((previous) => {
-      const uniqueMap = new Map<string, File>()
+    if (preparedFiles.length > 0) {
+      const preparedItems: GalleryItem[] = preparedFiles.map((file) => ({
+        id: buildGalleryItemId('new'),
+        kind: 'new',
+        file,
+        url: URL.createObjectURL(file),
+      }))
 
-      for (const file of previous) {
-        uniqueMap.set(dedupeKey(file), file)
-      }
-
-      for (const file of preparedFiles) {
-        uniqueMap.set(dedupeKey(file), file)
-      }
-
-      return Array.from(uniqueMap.values()).slice(0, MAX_IMAGES)
-    })
+      setGalleryItems((previous) => [...previous, ...preparedItems].slice(0, MAX_IMAGES))
+    }
 
     setProcessingImages(false)
 
@@ -378,12 +622,77 @@ export default function PostForm({
     }
   }
 
-  const removeImageAt = (indexToRemove: number) => {
-    setImageFiles((previous) => previous.filter((_, index) => index !== indexToRemove))
+  const removeGalleryItem = (idToRemove: string) => {
+    setGalleryItems((previous) => {
+      const target = previous.find((item) => item.id === idToRemove)
+
+      if (target?.kind === 'new') {
+        URL.revokeObjectURL(target.url)
+      }
+
+      return previous.filter((item) => item.id !== idToRemove)
+    })
   }
 
-  const removeExistingImageAt = (indexToRemove: number) => {
-    setExistingImageUrls((previous) => previous.filter((_, index) => index !== indexToRemove))
+  const handleDragStart = (itemId: string) => {
+    setDraggingImageId(itemId)
+  }
+
+  const handleDropOn = (targetId: string) => {
+    if (!draggingImageId) {
+      return
+    }
+
+    setGalleryItems((previous) => reorderItems(previous, draggingImageId, targetId))
+    setDraggingImageId(null)
+  }
+
+  const handleCropComplete = (_: Area, areaPixels: Area) => {
+    setCroppedAreaPixels(areaPixels)
+  }
+
+  const applyCropOnCurrentImage = async () => {
+    if (!cropTarget || !croppedAreaPixels) {
+      return
+    }
+
+    setApplyingCrop(true)
+    setErrorMsg(null)
+
+    try {
+      const cropped = await buildCroppedFile(cropTarget.itemUrl, croppedAreaPixels, `${cropTarget.itemId}.jpg`)
+      const optimized = await ensureFileWithinBudget(cropped)
+      const nextItemId = buildGalleryItemId('new')
+      const nextItem: GalleryItem = {
+        id: nextItemId,
+        kind: 'new',
+        file: optimized,
+        url: URL.createObjectURL(optimized),
+      }
+
+      setGalleryItems((previous) => {
+        return previous.map((item) => {
+          if (item.id !== cropTarget.itemId) {
+            return item
+          }
+
+          if (item.kind === 'new') {
+            URL.revokeObjectURL(item.url)
+          }
+
+          return nextItem
+        })
+      })
+
+      setCropTarget(null)
+      setCrop({ x: 0, y: 0 })
+      setCropZoom(1)
+      setCroppedAreaPixels(null)
+    } catch (error) {
+      setErrorMsg(error instanceof Error ? error.message : 'No se pudo recortar la imagen.')
+    } finally {
+      setApplyingCrop(false)
+    }
   }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -404,7 +713,7 @@ export default function PostForm({
       return
     }
 
-    if (mode === 'create' && imageFiles.length === 0) {
+    if (mode === 'create' && galleryItems.length === 0) {
       setErrorMsg('Selecciona al menos una imagen para la publicacion.')
       return
     }
@@ -499,6 +808,16 @@ export default function PostForm({
       }
     }
 
+    const orderedGallery = galleryItems.map((item) =>
+      item.kind === 'existing' ? `existing::${item.url}` : `new::${item.id}`
+    )
+    const newImages = galleryItems
+      .filter((item): item is GalleryItem & { kind: 'new'; file: File } => item.kind === 'new' && Boolean(item.file))
+      .map((item) => ({ id: item.id, file: item.file }))
+    const keptExistingImageUrls = galleryItems
+      .filter((item) => item.kind === 'existing')
+      .map((item) => item.url)
+
     setSubmitting(true)
 
     const result = await onSubmit({
@@ -507,8 +826,10 @@ export default function PostForm({
       price: parsedPrice,
       category: finalCategory,
       whatsappNumber: normalizedWhatsapp,
-      imageFiles,
-      keptExistingImageUrls: existingImageUrls,
+      imageFiles: newImages.map((item) => item.file),
+      newImages,
+      galleryOrder: orderedGallery,
+      keptExistingImageUrls,
       vehicleDetails: vehicleDetailsPayload,
       locationDepartment: form.locationDepartment.trim(),
       locationMapsUrl: form.locationMapsUrl.trim() ? form.locationMapsUrl.trim() : null,
@@ -519,6 +840,12 @@ export default function PostForm({
       setSubmitting(false)
       return
     }
+
+    if (draftStorageKey && typeof window !== 'undefined') {
+      window.localStorage.removeItem(draftStorageKey)
+    }
+
+    setLastSavedSnapshotKey(currentSnapshotKey)
 
     setSubmitting(false)
   }
@@ -840,45 +1167,9 @@ export default function PostForm({
           </div>
         </div>
 
-        {mode === 'edit' && existingImageUrls.length > 0 ? (
-          <div className="rounded-xl border border-(--line) bg-(--background-muted) p-3">
-            <p className="mb-2 text-xs font-medium uppercase tracking-wide text-(--foreground-muted)">
-              Imagenes ya cargadas ({existingImageUrls.length})
-            </p>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-              {existingImageUrls.map((url, index) => (
-                <div
-                  key={`${url}-${index}`}
-                  className="relative overflow-hidden rounded-lg border border-(--line) bg-(--background-elevated)"
-                >
-                  <img
-                    src={url}
-                    alt={`Imagen actual ${index + 1}`}
-                    className="h-26 w-full object-cover sm:h-30"
-                  />
-                  <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/55 to-transparent px-2 py-1 text-xs text-white">
-                    {index === 0 ? 'Principal actual' : `Foto ${index + 1}`}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => removeExistingImageAt(index)}
-                    className="absolute right-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-(--line) bg-white/95 text-base leading-none text-(--foreground-muted) shadow-sm transition hover:bg-white hover:text-foreground"
-                    aria-label={`Quitar imagen actual ${index + 1}`}
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-            <span className="mt-2 block text-xs text-(--foreground-muted)">
-              Puedes quitar imagenes existentes y combinar con nuevas antes de guardar.
-            </span>
-          </div>
-        ) : null}
-
         <label className="flex flex-col gap-1.5">
           <span className="text-sm font-medium text-foreground">
-            {mode === 'create' ? 'Imagenes' : 'Nuevas imagenes (opcionales)'}
+            {mode === 'create' ? 'Imagenes' : 'Imagenes'}
           </span>
           <input
             ref={imageInputRef}
@@ -886,12 +1177,12 @@ export default function PostForm({
             type="file"
             accept="image/*"
             multiple
-            disabled={processingImages || imageFiles.length >= MAX_IMAGES}
+            disabled={processingImages || galleryItems.length >= MAX_IMAGES}
             onChange={(event) => {
               void addImageFiles(Array.from(event.target.files ?? []))
               event.currentTarget.value = ''
             }}
-            required={mode === 'create' && imageFiles.length === 0}
+            required={mode === 'create' && galleryItems.length === 0}
           />
 
           <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
@@ -916,48 +1207,75 @@ export default function PostForm({
             Google Drive: comparte el archivo con acceso publico y pega el link.
           </span>
 
-          <span className="text-xs text-(--foreground-muted)">
-            Limite: hasta {MAX_IMAGES} imagenes. Se comprimen automaticamente a un maximo de 2.5MB por imagen.
-          </span>
+          <span className="text-xs text-(--foreground-muted)">Limite: hasta {MAX_IMAGES} imagenes.</span>
 
           <div className="mt-2 flex flex-wrap gap-2">
             <button
               type="button"
               onClick={() => imageInputRef.current?.click()}
-              disabled={processingImages || imageFiles.length >= MAX_IMAGES}
+              disabled={processingImages || galleryItems.length >= MAX_IMAGES}
               className="thsj-btn thsj-btn-ghost px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
             >
               {processingImages ? 'Procesando...' : 'Agregar mas fotos'}
             </button>
           </div>
 
-          {imageFiles.length > 0 ? (
+          {showVehicleSection ? (
+            <div className="mt-2 rounded-xl border border-(--line) bg-(--background-muted) p-3">
+              <p className="text-xs font-medium uppercase tracking-wide text-(--foreground-muted)">
+                Guia sugerida para vehiculos (estilo marketplace)
+              </p>
+              <p className="mt-1 text-xs text-(--foreground-muted)">
+                Carga y ordena las fotos en este orden para mejorar conversion: {VEHICLE_PHOTO_ORDER.join(' - ')}.
+              </p>
+            </div>
+          ) : null}
+
+          {galleryItems.length > 0 ? (
             <div className="mt-3 rounded-xl border border-(--line) bg-(--background-muted) p-3">
               <p className="mb-2 text-xs font-medium uppercase tracking-wide text-(--foreground-muted)">
-                Imagenes seleccionadas ({imageFiles.length})
+                Imagenes ({galleryItems.length}) - arrastra para reordenar
               </p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                {imageFiles.map((file, index) => (
+                {galleryItems.map((item, index) => (
                   <div
-                    key={`${file.name}-${file.lastModified}-${index}`}
+                    key={item.id}
                     className="relative overflow-hidden rounded-lg border border-(--line) bg-(--background-elevated)"
+                    draggable
+                    onDragStart={() => handleDragStart(item.id)}
+                    onDragEnd={() => setDraggingImageId(null)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={() => handleDropOn(item.id)}
                   >
                     <img
-                      src={newImagePreviewUrls[index]}
-                      alt={`Nueva imagen ${index + 1}`}
+                      src={item.url}
+                      alt={`Imagen ${index + 1}`}
                       className="h-26 w-full object-cover sm:h-30"
                     />
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/55 to-transparent px-2 py-1 text-xs text-white">
-                      {index === 0 ? 'Principal nueva' : `Foto ${index + 1}`}
+                      {index === 0 ? 'Principal' : `Foto ${index + 1}`}
+                      {showVehicleSection && VEHICLE_PHOTO_ORDER[index] ? ` - ${VEHICLE_PHOTO_ORDER[index]}` : ''}
                     </div>
                     <button
                       type="button"
-                      onClick={() => removeImageAt(index)}
+                      onClick={() => setCropTarget({ itemId: item.id, itemUrl: item.url })}
+                      className="absolute left-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-(--line) bg-white/95 text-xs leading-none text-(--foreground-muted) shadow-sm transition hover:bg-white hover:text-foreground"
+                      aria-label={`Editar imagen ${index + 1}`}
+                      title="Recortar/Reencuadrar"
+                    >
+                      ✎
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeGalleryItem(item.id)}
                       className="absolute right-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-(--line) bg-white/95 text-base leading-none text-(--foreground-muted) shadow-sm transition hover:bg-white hover:text-foreground"
-                      aria-label={`Quitar nueva imagen ${index + 1}`}
+                      aria-label={`Quitar imagen ${index + 1}`}
                     >
                       ×
                     </button>
+                    {draggingImageId === item.id ? (
+                      <div className="pointer-events-none absolute inset-0 border-2 border-dashed border-(--brand-primary)" />
+                    ) : null}
                   </div>
                 ))}
               </div>
@@ -968,6 +1286,67 @@ export default function PostForm({
             <span className="text-xs text-(--foreground-muted)">Agrega al menos una imagen para publicar.</span>
           ) : null}
         </label>
+
+        {cropTarget ? (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
+            <div className="w-full max-w-xl rounded-2xl border border-(--line) bg-(--background-elevated) p-4 sm:p-5">
+              <p className="text-base font-semibold text-foreground">Recortar y reencuadrar imagen</p>
+              <p className="mt-1 text-xs text-(--foreground-muted)">Ajusta el encuadre y zoom para mejorar la portada.</p>
+
+              <div className="relative mt-3 h-72 overflow-hidden rounded-xl bg-black sm:h-84">
+                <Cropper
+                  image={cropTarget.itemUrl}
+                  crop={crop}
+                  zoom={cropZoom}
+                  aspect={4 / 3}
+                  onCropChange={setCrop}
+                  onZoomChange={setCropZoom}
+                  onCropComplete={handleCropComplete}
+                />
+              </div>
+
+              <div className="mt-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-xs text-(--foreground-muted)">Zoom</span>
+                  <input
+                    type="range"
+                    min={1}
+                    max={3}
+                    step={0.01}
+                    value={cropZoom}
+                    onChange={(event) => setCropZoom(Number(event.target.value))}
+                  />
+                </label>
+              </div>
+
+              <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button
+                  type="button"
+                  className="thsj-btn thsj-btn-ghost"
+                  onClick={() => {
+                    setCropTarget(null)
+                    setCrop({ x: 0, y: 0 })
+                    setCropZoom(1)
+                    setCroppedAreaPixels(null)
+                  }}
+                  disabled={applyingCrop}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="thsj-btn thsj-btn-primary"
+                  onClick={() => {
+                    void applyCropOnCurrentImage()
+                  }}
+                  disabled={applyingCrop}
+                >
+                  {applyingCrop ? 'Aplicando...' : 'Aplicar recorte'}
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : null}
 
         {errorMsg ? (
           <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
@@ -985,9 +1364,9 @@ export default function PostForm({
           <button
             className="thsj-btn thsj-btn-primary w-full disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
             type="submit"
-            disabled={submitting}
+            disabled={submitting || (mode === 'edit' && !hasPendingChanges)}
           >
-            {submitting ? 'Guardando...' : submitLabel}
+            {submitting ? 'Guardando...' : mode === 'edit' && !hasPendingChanges ? 'Sin cambios' : submitLabel}
           </button>
         </div>
       </form>
