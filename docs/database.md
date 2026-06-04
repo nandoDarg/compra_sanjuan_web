@@ -275,7 +275,20 @@ using (
 );
 ```
 
-## 3) CRUD que ya quedo cableado en frontend
+## 3) Perfil publico de usuario (display_name)
+
+Para ocultar identificadores internos y mostrar nombre publico del vendedor, ejecutar:
+
+- `docs/sql/20260604_profiles_display_name.sql`
+
+Esta migracion:
+
+- crea `public.profiles` con `display_name` obligatorio
+- agrega trigger en `auth.users` para crear/sincronizar perfil al registrarse
+- habilita RLS y politicas para lectura publica y edicion del propio usuario
+- hace backfill de usuarios existentes con fallback `Usuario`
+
+## 4) CRUD que ya quedo cableado en frontend
 
 - Crear publicacion: /create-post
 - Subida de imagenes al bucket: post-images
@@ -285,7 +298,7 @@ using (
 - Datos tecnicos de vehiculos: vehicle_details
 - Feed principal: /
 
-## 4) SQL de migracion puntual (solo ubicacion)
+## 5) SQL de migracion puntual (solo ubicacion)
 
 Si solo necesitas agregar ubicacion en un entorno ya existente, ejecuta:
 
@@ -297,7 +310,7 @@ alter table public.posts
 add column if not exists location_maps_url text;
 ```
 
-## 5) SQL de correccion para feed publico (sin login)
+## 6) SQL de correccion para feed publico (sin login)
 
 Si los usuarios anonimos no ven publicaciones en `/`, ejecuta:
 

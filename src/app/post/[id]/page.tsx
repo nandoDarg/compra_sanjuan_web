@@ -1,5 +1,6 @@
 'use client'
 
+/* eslint-disable @next/next/no-img-element */
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -68,6 +69,7 @@ export default function PostDetailPage() {
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [shareFeedback, setShareFeedback] = useState<string | null>(null)
+  const [sellerDisplayName, setSellerDisplayName] = useState('Usuario')
   const [isZoomModalOpen, setIsZoomModalOpen] = useState(false)
   const [lensState, setLensState] = useState<{
     left: number
@@ -84,6 +86,7 @@ export default function PostDetailPage() {
     const loadPost = async () => {
       setLoading(true)
       setErrorMsg(null)
+      setSellerDisplayName('Usuario')
 
       const { data, error } = await supabase
         .from('posts')
@@ -99,6 +102,14 @@ export default function PostDetailPage() {
       }
 
       setPost(data)
+
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('display_name')
+        .eq('user_id', data.user_id)
+        .maybeSingle()
+
+      setSellerDisplayName(profileData?.display_name?.trim() || 'Usuario')
 
       const { data: extraImagesData } = await supabase
         .from('post_images')
@@ -500,8 +511,7 @@ export default function PostDetailPage() {
 
             <div className="rounded-2xl border border-(--line) bg-(--background-elevated) p-4">
               <p className="text-xs uppercase tracking-wide text-(--foreground-muted)">Vendedor</p>
-              <p className="mt-1 font-medium text-foreground">Miembro #{post.user_id.slice(0, 8)}</p>
-              <p className="mt-1 text-xs text-(--foreground-muted)">Perfil activo en marketplace local.</p>
+              <p className="mt-1 font-medium text-foreground">{sellerDisplayName || 'Usuario'}</p>
             </div>
           </div>
 

@@ -11,6 +11,7 @@ export default function RegisterPage() {
   const supabase = createClient()
   const router = useRouter()
 
+  const [displayName, setDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
@@ -18,13 +19,20 @@ export default function RegisterPage() {
   const [success, setSuccess] = useState('')
 
   const normalizeEmail = (value: string) => value.trim().toLowerCase()
+  const normalizeDisplayName = (value: string) => value.trim()
 
   const handleRegister = async () => {
     setError('')
     setSuccess('')
 
+    const normalizedDisplayName = normalizeDisplayName(displayName)
     const normalizedEmail = normalizeEmail(email)
     const normalizedPassword = password.trim()
+
+    if (normalizedDisplayName.length < 3 || normalizedDisplayName.length > 40) {
+      setError('El nombre de usuario debe tener entre 3 y 40 caracteres.')
+      return
+    }
 
     if (!normalizedEmail) {
       setError('Ingresa un email valido.')
@@ -42,6 +50,9 @@ export default function RegisterPage() {
       email: normalizedEmail,
       password: normalizedPassword,
       options: {
+        data: {
+          display_name: normalizedDisplayName,
+        },
         emailRedirectTo: `${window.location.origin}/login`,
       },
     })
@@ -51,6 +62,18 @@ export default function RegisterPage() {
     if (error) {
       setError(mapSupabaseAuthErrorMessage(error.message))
     } else {
+      if (data.user?.id && data.session) {
+        await supabase.from('profiles').upsert(
+          {
+            user_id: data.user.id,
+            display_name: normalizedDisplayName,
+          },
+          {
+            onConflict: 'user_id',
+          }
+        )
+      }
+
       trackEvent(ANALYTICS_EVENTS.USER_REGISTERED, {
         method: 'email_password',
         timestamp: new Date().toISOString(),
@@ -77,6 +100,16 @@ export default function RegisterPage() {
         </p>
 
         <div className="mt-6 flex flex-col gap-4">
+        <input
+          className="thsj-input px-3 py-2.5"
+          placeholder="Nombre de usuario"
+          value={displayName}
+          minLength={3}
+          maxLength={40}
+          required
+          onChange={(e) => setDisplayName(e.target.value)}
+        />
+
         <input
           className="thsj-input px-3 py-2.5"
           placeholder="Email"

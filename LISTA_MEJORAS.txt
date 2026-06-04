@@ -5,4 +5,7 @@ PENDIENTES:
 4. Categorias y estructura de publicaicones.
 5. Ubicacion de las publicaciones y link a mapa.
 6. Categoria --> Otra(provisoria) <-- ELIMINAR EL PROVISORIA
-7. PROBLEMA: si no me logeo, en el feed no veo ninguna publicacion
+7. Link de Google Maps (opcional): 
+	- quitar "Si lo completas, debe ser un enlace valido de Google Maps."
+	- quitar "(opcional)" 
+	- Agregar un asterisco en las casillas obligatorias y nada en las que no. Agregar una nota en algun lugar visible aclarando esto.

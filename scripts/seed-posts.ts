@@ -334,6 +334,7 @@ async function ensureFictionalUsers(supabase: SupabaseAdminClient) {
       email_confirm: true,
       user_metadata: {
         full_name: user.fullName,
+        display_name: user.fullName,
         source: 'seed-script',
       },
     })
