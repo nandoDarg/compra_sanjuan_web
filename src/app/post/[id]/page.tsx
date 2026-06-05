@@ -338,11 +338,11 @@ export default function PostDetailPage() {
         <div className="relative">
         <article className="thsj-card overflow-hidden">
           {postImages.length > 0 ? (
-            <div className="relative w-full overflow-hidden">
+            <div className="relative aspect-square w-full overflow-hidden bg-neutral-900">
               <img
                 src={postImages[selectedImageIndex]}
                 alt={post.title}
-                className="h-72 w-full cursor-zoom-in object-cover sm:h-105 lg:h-130"
+                className="h-full w-full cursor-zoom-in object-contain"
                 onClick={() => {
                   setIsZoomModalOpen(true)
                   setLensState(null)
@@ -392,7 +392,7 @@ export default function PostDetailPage() {
               ) : null}
             </div>
           ) : (
-            <div className="flex h-72 items-center justify-center bg-(--background-muted) text-sm text-(--foreground-muted) sm:h-105 lg:h-130">
+            <div className="flex aspect-square items-center justify-center bg-(--background-muted) text-sm text-(--foreground-muted)">
               Sin imagen disponible
             </div>
           )}
@@ -406,7 +406,7 @@ export default function PostDetailPage() {
                   onClick={() => setSelectedImageIndex(index)}
                   onMouseEnter={() => setSelectedImageIndex(index)}
                   onFocus={() => setSelectedImageIndex(index)}
-                  className={`overflow-hidden rounded-lg border transition ${
+                  className={`aspect-square overflow-hidden rounded-lg border transition ${
                     selectedImageIndex === index
                       ? 'border-(--brand-primary) ring-1 ring-(--brand-primary)'
                       : 'border-(--line) hover:border-(--line-strong)'
@@ -415,7 +415,7 @@ export default function PostDetailPage() {
                   <img
                     src={imageUrl}
                     alt={`${post.title} ${index + 1}`}
-                    className="h-14 w-full object-cover sm:h-16"
+                    className="h-full w-full object-cover"
                   />
                 </button>
               ))}

@@ -49,16 +49,16 @@ export default function PostCard({
   const cardContent = (
     <>
       {imageUrl ? (
-        <div className="relative overflow-hidden">
+        <div className="relative aspect-square overflow-hidden bg-neutral-900">
           <img
             src={imageUrl}
             alt={title}
-            className="h-56 w-full object-cover transition duration-500 group-hover:scale-105"
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/25 to-transparent" />
         </div>
       ) : (
-        <div className="flex h-56 items-center justify-center bg-[var(--background-muted)] text-sm text-[var(--foreground-muted)]">
+        <div className="flex aspect-square items-center justify-center bg-[var(--background-muted)] text-sm text-[var(--foreground-muted)]">
           Sin imagen
         </div>
       )}

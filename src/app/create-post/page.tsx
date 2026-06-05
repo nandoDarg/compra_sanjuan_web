@@ -8,6 +8,26 @@ import { isVehicleCategory } from '@/lib/vehicle-details'
 
 const MAX_IMAGE_SIZE_BYTES = Math.round(2.5 * 1024 * 1024)
 
+function logPublishError(step: string, error: unknown, context?: Record<string, unknown>) {
+  console.error(error)
+
+  try {
+    console.error(JSON.stringify(error, null, 2))
+  } catch {
+    console.error('No se pudo serializar el error para diagnostico.')
+  }
+
+  console.error(`[create-post] ${step}`, context ?? {})
+}
+
+function getPublishFriendlyError(type: 'publish' | 'images') {
+  if (type === 'images') {
+    return 'Ocurrio un problema al subir las imagenes.'
+  }
+
+  return 'No se pudo publicar el anuncio. Intenta nuevamente.'
+}
+
 export default function CreatePostPage() {
   const supabase = createClient()
   const router = useRouter()
@@ -32,48 +52,118 @@ export default function CreatePostPage() {
 
     const uploadedImages: Array<{ filePath: string; publicUrl: string }> = []
 
+    const rollbackUploadedImages = async () => {
+      if (uploadedImages.length === 0) {
+        return
+      }
+
+      const { error: removeError } = await supabase.storage
+        .from('post-images')
+        .remove(uploadedImages.map((image) => image.filePath))
+
+      if (removeError) {
+        logPublishError('rollback-uploaded-images-failed', removeError, {
+          filePaths: uploadedImages.map((image) => image.filePath),
+        })
+      }
+    }
+
     for (const { file: imageFile } of formData.newImages) {
       const safeFileName = imageFile.name.replace(/\s+/g, '-').toLowerCase()
       const filePath = `${user.id}/${Date.now()}-${safeFileName}`
 
-      const { error: uploadError } = await supabase.storage
-        .from('post-images')
-        .upload(filePath, imageFile, {
-          cacheControl: '3600',
-          upsert: false,
+      let uploadError: { message: string } | null = null
+
+      try {
+        const uploadResult = await supabase.storage
+          .from('post-images')
+          .upload(filePath, imageFile, {
+            cacheControl: '3600',
+            upsert: false,
+          })
+
+        uploadError = uploadResult.error
+      } catch (error) {
+        logPublishError('upload-main-or-gallery-image-threw', error, {
+          filePath,
+          fileName: imageFile.name,
+          fileSize: imageFile.size,
+          fileType: imageFile.type,
+          platform: typeof navigator !== 'undefined' ? navigator.userAgent : 'server',
         })
+        await rollbackUploadedImages()
+        return { error: getPublishFriendlyError('images') }
+      }
 
       if (uploadError) {
-        return { error: uploadError.message }
+        logPublishError('upload-main-or-gallery-image-failed', uploadError, {
+          filePath,
+          fileName: imageFile.name,
+          fileSize: imageFile.size,
+          fileType: imageFile.type,
+          platform: typeof navigator !== 'undefined' ? navigator.userAgent : 'server',
+        })
+        await rollbackUploadedImages()
+        return { error: getPublishFriendlyError('images') }
       }
 
       const { data: publicUrlData } = supabase.storage
         .from('post-images')
         .getPublicUrl(filePath)
 
-      uploadedImages.push({ filePath, publicUrl: publicUrlData.publicUrl })
+      const publicUrl = publicUrlData.publicUrl?.trim()
+
+      if (!publicUrl) {
+        logPublishError('public-url-generation-failed', { filePath }, {
+          filePath,
+        })
+        await rollbackUploadedImages()
+        return { error: getPublishFriendlyError('images') }
+      }
+
+      uploadedImages.push({ filePath, publicUrl })
     }
 
     const [primaryImage, ...extraImages] = uploadedImages
 
-    const { data: insertedPost, error: insertError } = await supabase
-      .from('posts')
-      .insert({
-        user_id: user.id,
-        title: formData.title,
-        description: formData.description,
-        price: formData.price,
-        category: formData.category,
-        whatsapp_number: formData.whatsappNumber,
-        location_department: formData.locationDepartment,
-        location_maps_url: formData.locationMapsUrl,
-        image_url: primaryImage.publicUrl,
-      })
-      .select('id')
-      .single()
+    let insertedPost: { id: string } | null = null
+    let insertError: { message: string } | null = null
 
-    if (insertError) {
-      return { error: insertError.message }
+    try {
+      const insertResponse = await supabase
+        .from('posts')
+        .insert({
+          user_id: user.id,
+          title: formData.title,
+          description: formData.description,
+          price: formData.price,
+          category: formData.category,
+          whatsapp_number: formData.whatsappNumber,
+          location_department: formData.locationDepartment,
+          location_maps_url: formData.locationMapsUrl,
+          image_url: primaryImage.publicUrl,
+        })
+        .select('id')
+        .single()
+
+      insertedPost = insertResponse.data as { id: string } | null
+      insertError = insertResponse.error
+    } catch (error) {
+      logPublishError('insert-post-threw', error, {
+        userId: user.id,
+        category: formData.category,
+      })
+      await rollbackUploadedImages()
+      return { error: getPublishFriendlyError('publish') }
+    }
+
+    if (insertError || !insertedPost?.id) {
+      logPublishError('insert-post-failed', insertError ?? { message: 'Insert sin id de post.' }, {
+        userId: user.id,
+        category: formData.category,
+      })
+      await rollbackUploadedImages()
+      return { error: getPublishFriendlyError('publish') }
     }
 
     if (extraImages.length > 0) {
@@ -86,17 +176,19 @@ export default function CreatePostPage() {
       )
 
       if (imageRelationError) {
+        logPublishError('insert-post-images-failed', imageRelationError, {
+          postId: insertedPost.id,
+          imagesCount: extraImages.length,
+        })
         await supabase
           .from('posts')
           .delete()
           .eq('id', insertedPost.id)
           .eq('user_id', user.id)
 
-        await supabase.storage.from('post-images').remove(uploadedImages.map((image) => image.filePath))
+        await rollbackUploadedImages()
 
-        return {
-          error: 'No se pudo guardar la galeria de imagenes. Revisa la migracion de post_images e intenta nuevamente.',
-        }
+        return { error: getPublishFriendlyError('images') }
       }
     }
 
@@ -114,17 +206,19 @@ export default function CreatePostPage() {
       })
 
       if (vehicleDetailsError) {
+        logPublishError('insert-vehicle-details-failed', vehicleDetailsError, {
+          postId: insertedPost.id,
+          category: formData.category,
+        })
         await supabase
           .from('posts')
           .delete()
           .eq('id', insertedPost.id)
           .eq('user_id', user.id)
 
-        await supabase.storage.from('post-images').remove(uploadedImages.map((image) => image.filePath))
+        await rollbackUploadedImages()
 
-        return {
-          error: 'No se pudo guardar la informacion del vehiculo. Revisa la migracion de vehicle_details.',
-        }
+        return { error: getPublishFriendlyError('publish') }
       }
     }
 
@@ -134,8 +228,14 @@ export default function CreatePostPage() {
       has_image: formData.newImages.length > 0,
     })
 
-    router.push('/')
-    router.refresh()
+    try {
+      router.push('/')
+      router.refresh()
+    } catch (error) {
+      logPublishError('post-publish-navigation-threw', error, {
+        postId: insertedPost.id,
+      })
+    }
   }
 
   return (

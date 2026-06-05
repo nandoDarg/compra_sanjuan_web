@@ -336,6 +336,36 @@ function normalizeWhatsAppNumber(value: string) {
   return value.replace(/\D+/g, '')
 }
 
+function isTechnicalErrorMessage(message: string) {
+  const value = message.toLowerCase()
+
+  return (
+    value.includes('failed to fetch') ||
+    value.includes('storageerror') ||
+    value.includes('postgresterror') ||
+    value.includes('networkerror') ||
+    value.includes('typeerror')
+  )
+}
+
+function toFriendlySubmitError(message: string | null | undefined, mode: PostFormProps['mode']) {
+  if (!message) {
+    return mode === 'create'
+      ? 'No se pudo publicar el anuncio. Intenta nuevamente.'
+      : 'No se pudo guardar la publicacion. Intenta nuevamente.'
+  }
+
+  const trimmed = message.trim()
+
+  if (!trimmed || isTechnicalErrorMessage(trimmed)) {
+    return mode === 'create'
+      ? 'No se pudo publicar el anuncio. Intenta nuevamente.'
+      : 'No se pudo guardar la publicacion. Intenta nuevamente.'
+  }
+
+  return trimmed
+}
+
 export default function PostForm({
   mode,
   heading,
@@ -603,7 +633,7 @@ export default function PostForm({
 
       if (!response.ok) {
         const payload = (await response.json().catch(() => null)) as { error?: string } | null
-        setErrorMsg(payload?.error ?? 'No se pudo importar la imagen desde el enlace.')
+        setErrorMsg(toFriendlySubmitError(payload?.error ?? 'No se pudo importar la imagen desde el enlace.', mode))
         setImportingUrl(false)
         return
       }
@@ -820,23 +850,39 @@ export default function PostForm({
 
     setSubmitting(true)
 
-    const result = await onSubmit({
-      title: form.title.trim(),
-      description: form.description.trim(),
-      price: parsedPrice,
-      category: finalCategory,
-      whatsappNumber: normalizedWhatsapp,
-      imageFiles: newImages.map((item) => item.file),
-      newImages,
-      galleryOrder: orderedGallery,
-      keptExistingImageUrls,
-      vehicleDetails: vehicleDetailsPayload,
-      locationDepartment: form.locationDepartment.trim(),
-      locationMapsUrl: form.locationMapsUrl.trim() ? form.locationMapsUrl.trim() : null,
-    })
+    let result: { error?: string } | void
+
+    try {
+      result = await onSubmit({
+        title: form.title.trim(),
+        description: form.description.trim(),
+        price: parsedPrice,
+        category: finalCategory,
+        whatsappNumber: normalizedWhatsapp,
+        imageFiles: newImages.map((item) => item.file),
+        newImages,
+        galleryOrder: orderedGallery,
+        keptExistingImageUrls,
+        vehicleDetails: vehicleDetailsPayload,
+        locationDepartment: form.locationDepartment.trim(),
+        locationMapsUrl: form.locationMapsUrl.trim() ? form.locationMapsUrl.trim() : null,
+      })
+    } catch (error) {
+      console.error(error)
+
+      try {
+        console.error(JSON.stringify(error, null, 2))
+      } catch {
+        console.error('No se pudo serializar el error de envio de formulario.')
+      }
+
+      setErrorMsg(toFriendlySubmitError(null, mode))
+      setSubmitting(false)
+      return
+    }
 
     if (result?.error) {
-      setErrorMsg(result.error)
+      setErrorMsg(toFriendlySubmitError(result.error, mode))
       setSubmitting(false)
       return
     }
@@ -1240,7 +1286,7 @@ export default function PostForm({
                 {galleryItems.map((item, index) => (
                   <div
                     key={item.id}
-                    className="relative overflow-hidden rounded-lg border border-(--line) bg-(--background-elevated)"
+                    className="relative aspect-square overflow-hidden rounded-lg border border-(--line) bg-(--background-elevated)"
                     draggable
                     onDragStart={() => handleDragStart(item.id)}
                     onDragEnd={() => setDraggingImageId(null)}
@@ -1250,7 +1296,7 @@ export default function PostForm({
                     <img
                       src={item.url}
                       alt={`Imagen ${index + 1}`}
-                      className="h-26 w-full object-cover sm:h-30"
+                      className="h-full w-full object-cover"
                     />
                     <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/55 to-transparent px-2 py-1 text-xs text-white">
                       {index === 0 ? 'Principal' : `Foto ${index + 1}`}
@@ -1293,12 +1339,14 @@ export default function PostForm({
               <p className="text-base font-semibold text-foreground">Recortar y reencuadrar imagen</p>
               <p className="mt-1 text-xs text-(--foreground-muted)">Ajusta el encuadre y zoom para mejorar la portada.</p>
 
-              <div className="relative mt-3 h-72 overflow-hidden rounded-xl bg-black sm:h-84">
+              <div className="relative mt-3 aspect-square w-full overflow-hidden rounded-xl bg-black">
                 <Cropper
                   image={cropTarget.itemUrl}
                   crop={crop}
                   zoom={cropZoom}
-                  aspect={4 / 3}
+                  minZoom={0.25}
+                  objectFit="contain"
+                  aspect={1}
                   onCropChange={setCrop}
                   onZoomChange={setCropZoom}
                   onCropComplete={handleCropComplete}
@@ -1310,7 +1358,7 @@ export default function PostForm({
                   <span className="text-xs text-(--foreground-muted)">Zoom</span>
                   <input
                     type="range"
-                    min={1}
+                    min={0.25}
                     max={3}
                     step={0.01}
                     value={cropZoom}

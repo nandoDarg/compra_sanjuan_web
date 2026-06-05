@@ -9,3 +9,5 @@ PENDIENTES:
 	- quitar "Si lo completas, debe ser un enlace valido de Google Maps."
 	- quitar "(opcional)" 
 	- Agregar un asterisco en las casillas obligatorias y nada en las que no. Agregar una nota en algun lugar visible aclarando esto.
+8. cuando se envia el wahtsapp al publicador deben estar los datos de la publicacion incluido en el mensaje. 
+9. rankear perfiles y dar insignias por puntaje.

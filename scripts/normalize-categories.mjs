@@ -22,7 +22,7 @@ const CATEGORY_VARIANT_MAP = {
   computacion: 'Tecnologia',
   electrodomestico: 'Electrodomesticos',
   electrodomesticos: 'Electrodomesticos',
-  linea blanca: 'Electrodomesticos',
+  'linea blanca': 'Electrodomesticos',
   auto: 'Automotores',
   autos: 'Automotores',
   moto: 'Automotores',
