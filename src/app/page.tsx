@@ -7,6 +7,7 @@ import PostCard from '@/components/post-card'
 import FeedSkeleton from '@/components/ui/feed-skeleton'
 import EmptyState from '@/components/ui/empty-state'
 import CategoryFilter from '@/components/ui/category-filter'
+import CategorySidebar from '@/components/ui/category-sidebar'
 import ActiveFilterChips from '@/components/ui/active-filter-chips'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
 
@@ -29,8 +30,12 @@ type InteractionHistoryRecord = {
   category: string
   timestamp: string
 }
+type CategoryStat = {
+  name: string
+  postCount: number
+  clickCount: number
+}
 
-const DEFAULT_CATEGORIES = ['Todas']
 const SUGGESTION_LIMIT = 5
 const HISTORY_MAX_ITEMS = 12
 const INTERACTIONS_MAX_ITEMS = 40
@@ -194,7 +199,9 @@ function HomeContent() {
     [searchParams]
   )
   const [posts, setPosts] = useState<Post[]>([])
-  const [categories, setCategories] = useState<string[]>(DEFAULT_CATEGORIES)
+  const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([
+    { name: 'Todas', postCount: 0, clickCount: 0 },
+  ])
   const [loading, setLoading] = useState(true)
   const [feedError, setFeedError] = useState<string | null>(null)
   const [selectedCategory, setSelectedCategory] = useState('Todas')
@@ -206,6 +213,17 @@ function HomeContent() {
   const [interactionPostIds, setInteractionPostIds] = useState<Set<string>>(new Set())
   const lastTrackedSearchQueryRef = useRef('')
   const loadRequestIdRef = useRef(0)
+
+  const interactionCategoryFrequency = useMemo(() => {
+    const frequency = new Map<string, number>()
+
+    for (const category of interactionCategories) {
+      const normalized = normalizeText(category)
+      frequency.set(normalized, (frequency.get(normalized) ?? 0) + 1)
+    }
+
+    return frequency
+  }, [interactionCategories])
 
   const registerSearchTerm = useCallback((term: string) => {
     const normalized = term.trim()
@@ -299,19 +317,43 @@ function HomeContent() {
         return
       }
 
-      const dynamicCategories = Array.from(
-        new Set(
-          data
-            .map((item) => item.category?.trim())
-            .filter((category): category is string => Boolean(category))
-        )
-      ).sort((a, b) => a.localeCompare(b))
+      const postCountByCategory = data.reduce<Record<string, number>>((accumulator, item) => {
+        const category = item.category?.trim()
 
-      setCategories(['Todas', ...dynamicCategories])
+        if (!category) {
+          return accumulator
+        }
+
+        accumulator[category] = (accumulator[category] ?? 0) + 1
+        return accumulator
+      }, {})
+
+      const sortedCategories = Object.entries(postCountByCategory)
+        .map(([name, postCount]) => ({
+          name,
+          postCount,
+          clickCount: interactionCategoryFrequency.get(normalizeText(name)) ?? 0,
+        }))
+        .sort((left, right) => {
+          if (right.clickCount !== left.clickCount) {
+            return right.clickCount - left.clickCount
+          }
+
+          if (right.postCount !== left.postCount) {
+            return right.postCount - left.postCount
+          }
+
+          return left.name.localeCompare(right.name)
+        })
+
+      setCategoryStats([
+        { name: 'Todas', postCount: data.length, clickCount: 0 },
+        ...sortedCategories,
+      ])
     }
 
     loadCategories()
-  }, [supabase])
+  }, [interactionCategoryFrequency, supabase])
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -475,8 +517,22 @@ function HomeContent() {
     searchQuery.length > 0 || selectedCategory !== 'Todas' || sortBy !== 'recent'
 
   const fallbackCategorySuggestions = useMemo(
-    () => categories.filter((category) => category !== 'Todas').slice(0, SUGGESTION_LIMIT),
-    [categories]
+    () =>
+      categoryStats
+        .filter((category) => category.name !== 'Todas')
+        .map((category) => category.name)
+        .slice(0, SUGGESTION_LIMIT),
+    [categoryStats]
+  )
+
+  const mobileCategories = useMemo(
+    () => categoryStats.map((category) => category.name),
+    [categoryStats]
+  )
+
+  const desktopCategories = useMemo(
+    () => categoryStats.filter((category) => category.name !== 'Todas'),
+    [categoryStats]
   )
 
   const clearFilters = () => {
@@ -486,16 +542,28 @@ function HomeContent() {
   }
 
   return (
-    <section className="flex w-full flex-1 flex-col gap-4 py-4 sm:gap-5 sm:py-5">
-      <div className="thsj-panel p-4 sm:p-5">
+    <section className="flex w-full flex-1 flex-col gap-4 py-4 sm:gap-5 sm:py-5 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-6">
+      <div className="lg:order-1">
+        <CategorySidebar
+          categories={desktopCategories}
+          selectedCategory={selectedCategory}
+          onChange={handleCategoryChange}
+        />
+      </div>
+
+      <div className="flex min-w-0 flex-col gap-4 lg:order-2">
+        <div className="thsj-panel p-4 sm:p-5">
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-[220px_auto]">
           <label className="relative flex w-full">
             <select
               value={sortBy}
               onChange={(event) => setSortBy(event.target.value as SortOption)}
-              className="thsj-input w-full appearance-none px-3 py-2.5 pr-9 text-sm"
+              className={[
+                'thsj-input w-full appearance-none px-3 py-2.5 pr-9 text-sm',
+                sortBy === 'recent' ? 'text-(--foreground-muted)' : '',
+              ].join(' ')}
             >
-              <option value="recent">Mas recientes</option>
+              <option value="recent">Ordenar por</option>
               <option value="price-asc">Menor precio</option>
               <option value="price-desc">Mayor precio</option>
             </select>
@@ -517,9 +585,10 @@ function HomeContent() {
 
         <div className="mt-3 flex flex-col gap-3">
           <CategoryFilter
-            categories={categories}
+            categories={mobileCategories}
             selectedCategory={selectedCategory}
             onChange={handleCategoryChange}
+            className="lg:hidden"
           />
 
           <ActiveFilterChips
@@ -566,7 +635,7 @@ function HomeContent() {
       ) : null}
 
       {feedError ? (
-        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-[var(--danger)]">
+        <p className="rounded-xl border border-red-200 bg-red-50 px-4 py-2.5 text-sm text-(--danger)">
           {feedError}
         </p>
       ) : null}
@@ -585,7 +654,7 @@ function HomeContent() {
           ctaLabel={hasFilters ? 'Crear una publicacion' : 'Crear publicacion'}
         />
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
           {posts.map((post) => (
             <PostCard
               key={post.id}
@@ -603,6 +672,7 @@ function HomeContent() {
           ))}
         </div>
       )}
+      </div>
     </section>
   )
 }
