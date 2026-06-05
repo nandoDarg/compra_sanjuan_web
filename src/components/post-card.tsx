@@ -15,34 +15,12 @@ type PostCardProps = {
   onOpen?: () => void
 }
 
-function formatPublishedAt(value?: string) {
-  if (!value) {
-    return 'Publicado recientemente'
-  }
-
-  const date = new Date(value)
-
-  if (Number.isNaN(date.getTime())) {
-    return 'Publicado recientemente'
-  }
-
-  return new Intl.DateTimeFormat('es-AR', {
-    day: '2-digit',
-    month: 'short',
-    year: 'numeric',
-  }).format(date)
-}
-
 export default function PostCard({
   id,
   title,
-  description,
-  category,
-  locationDepartment,
   price,
   imageUrl,
   href,
-  publishedAt,
   actions,
   onOpen,
 }: PostCardProps) {
@@ -58,36 +36,19 @@ export default function PostCard({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/25 to-transparent" />
         </div>
       ) : (
-        <div className="flex aspect-square items-center justify-center bg-[var(--background-muted)] text-sm text-[var(--foreground-muted)]">
+        <div className="flex aspect-square items-center justify-center bg-[var(--background-muted)] text-xs text-[var(--foreground-muted)]">
           Sin imagen
         </div>
       )}
 
-      <div className="flex flex-1 flex-col gap-3 p-4 sm:p-5">
-        <div className="font-[var(--font-space-grotesk)] text-2xl font-extrabold tracking-tight text-[var(--brand-primary)]">
+      <div className="flex flex-1 flex-col gap-2 p-3 sm:p-4">
+        <div className="font-[var(--font-space-grotesk)] text-base font-semibold tracking-tight text-[var(--brand-primary)]">
           ${Number(price).toFixed(2)}
         </div>
 
-        <div className="flex items-start justify-between gap-3">
-          <h2 className="line-clamp-2 text-base font-semibold text-[var(--foreground)] sm:text-lg">
-            {title}
-          </h2>
-          <span className="rounded-full border border-[var(--line)] bg-[var(--background-elevated)] px-2.5 py-1 text-xs font-medium text-[var(--foreground-muted)]">
-            {category}
-          </span>
-        </div>
-
-        <p className="line-clamp-3 text-sm leading-6 text-[var(--foreground-muted)]">{description}</p>
-
-        <div className="mt-auto flex items-center justify-between border-t border-[var(--line)] pt-3 text-sm text-[var(--foreground-muted)]">
-          {locationDepartment ? (
-            <span className="inline-flex items-center gap-1.5">
-              <span aria-hidden="true">📍</span>
-              {locationDepartment}
-            </span>
-          ) : <span />}
-          <span className="text-xs text-[var(--foreground-muted)]">{formatPublishedAt(publishedAt)}</span>
-        </div>
+        <h2 className="min-h-[1.75rem] line-clamp-2 !text-[14px] font-medium leading-[1.15rem] text-[var(--foreground)] sm:min-h-[1.9rem] sm:!text-[14px]">
+          {title}
+        </h2>
       </div>
     </>
   )
