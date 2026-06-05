@@ -3,7 +3,7 @@
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import PostCard from '@/components/post-card'
 import { useAuth } from '@/components/auth-provider'
 import EmptyState from '@/components/ui/empty-state'
@@ -71,16 +71,21 @@ export default function PostDetailPage() {
   const [shareFeedback, setShareFeedback] = useState<string | null>(null)
   const [sellerDisplayName, setSellerDisplayName] = useState('Usuario')
   const [isZoomModalOpen, setIsZoomModalOpen] = useState(false)
-  const [lensState, setLensState] = useState<{
-    left: number
-    top: number
-    imgW: number
-    imgH: number
-    lensW: number
-    lensH: number
-  } | null>(null)
+  const [modalImageZoom, setModalImageZoom] = useState(1)
+  const [modalZoomOrigin, setModalZoomOrigin] = useState('50% 50%')
   const trackedPostViewIdRef = useRef<string | null>(null)
-  const mainImageContainerRef = useRef<HTMLDivElement | null>(null)
+
+  // La lupa secundaria del modal de zoom se desactivo porque agregaba ruido visual
+  // y una imagen pixelada que no aporta valor en la experiencia de usuario.
+  // const [lensState, setLensState] = useState<{
+  //   left: number
+  //   top: number
+  //   imgW: number
+  //   imgH: number
+  //   lensW: number
+  //   lensH: number
+  // } | null>(null)
+  // const mainImageContainerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const loadPost = async () => {
@@ -171,7 +176,8 @@ export default function PostDetailPage() {
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsZoomModalOpen(false)
-        setLensState(null)
+        setModalImageZoom(1)
+        setModalZoomOrigin('50% 50%')
       }
     }
 
@@ -283,9 +289,8 @@ export default function PostDetailPage() {
     post.location_maps_url?.trim() && isValidGoogleMapsUrl(post.location_maps_url)
   )
 
-  const ZOOM_FACTOR = 2.4
-
   const canNavigateImages = postImages.length > 1
+  const MODAL_ZOOM_SCALE = 2.2
 
   const goToPreviousImage = () => {
     if (!canNavigateImages) {
@@ -293,7 +298,8 @@ export default function PostDetailPage() {
     }
 
     setSelectedImageIndex((previous) => (previous - 1 + postImages.length) % postImages.length)
-    setLensState(null)
+    setModalImageZoom(1)
+    setModalZoomOrigin('50% 50%')
   }
 
   const goToNextImage = () => {
@@ -302,25 +308,30 @@ export default function PostDetailPage() {
     }
 
     setSelectedImageIndex((previous) => (previous + 1) % postImages.length)
-    setLensState(null)
+    setModalImageZoom(1)
+    setModalZoomOrigin('50% 50%')
   }
 
-  const handleMagnifierMove = (event: React.MouseEvent<HTMLDivElement>) => {
-    if (!isZoomModalOpen || !mainImageContainerRef.current) {
+  const handleModalImageClick = (event: MouseEvent<HTMLImageElement>) => {
+    if (modalImageZoom !== 1) {
+      setModalImageZoom(1)
+      setModalZoomOrigin('50% 50%')
       return
     }
 
-    const rect = mainImageContainerRef.current.getBoundingClientRect()
-    const imgW = rect.width
-    const imgH = rect.height
-    const lensW = Math.max(140, Math.min(imgW * 0.34, 280))
-    const lensH = Math.max(110, Math.min(imgH * 0.34, 220))
-    const mx = event.clientX - rect.left
-    const my = event.clientY - rect.top
-    const left = Math.min(imgW - lensW, Math.max(0, mx - lensW / 2))
-    const top = Math.min(imgH - lensH, Math.max(0, my - lensH / 2))
+    const rect = event.currentTarget.getBoundingClientRect()
 
-    setLensState({ left, top, imgW, imgH, lensW, lensH })
+    if (rect.width <= 0 || rect.height <= 0) {
+      return
+    }
+
+    const x = ((event.clientX - rect.left) / rect.width) * 100
+    const y = ((event.clientY - rect.top) / rect.height) * 100
+    const boundedX = Math.max(0, Math.min(100, x))
+    const boundedY = Math.max(0, Math.min(100, y))
+
+    setModalZoomOrigin(`${boundedX}% ${boundedY}%`)
+    setModalImageZoom(MODAL_ZOOM_SCALE)
   }
 
   return (
@@ -345,7 +356,8 @@ export default function PostDetailPage() {
                 className="h-full w-full cursor-zoom-in object-contain"
                 onClick={() => {
                   setIsZoomModalOpen(true)
-                  setLensState(null)
+                  setModalImageZoom(1)
+                  setModalZoomOrigin('50% 50%')
                 }}
               />
 
@@ -353,7 +365,8 @@ export default function PostDetailPage() {
                 type="button"
                 onClick={() => {
                   setIsZoomModalOpen(true)
-                  setLensState(null)
+                  setModalImageZoom(1)
+                  setModalZoomOrigin('50% 50%')
                 }}
                 className="absolute right-3 top-3 inline-flex h-9 w-9 items-center justify-center rounded-full border border-(--line) bg-white/90 text-foreground shadow transition hover:bg-white"
                 aria-label="Ampliar imagen"
@@ -583,17 +596,19 @@ export default function PostDetailPage() {
 
       {isZoomModalOpen ? (
         <div
-          className="fixed inset-0 z-60 flex items-center justify-center bg-black/85 p-4"
+          className="fixed inset-0 z-60 flex items-center justify-center overflow-auto bg-black/85 p-4"
           onClick={() => {
             setIsZoomModalOpen(false)
-            setLensState(null)
+            setModalImageZoom(1)
+            setModalZoomOrigin('50% 50%')
           }}
         >
           <button
             type="button"
             onClick={() => {
               setIsZoomModalOpen(false)
-              setLensState(null)
+              setModalImageZoom(1)
+              setModalZoomOrigin('50% 50%')
             }}
             className="absolute right-4 top-4 inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/30 bg-black/55 text-2xl leading-none text-white hover:bg-black/70"
             aria-label="Cerrar vista ampliada"
@@ -637,43 +652,26 @@ export default function PostDetailPage() {
           ) : null}
 
           <div
-            className="relative inline-block max-h-[90vh] max-w-[95vw] overflow-hidden rounded-xl"
-            ref={mainImageContainerRef}
+            className="relative aspect-square w-[min(95vw,95vh)] max-w-[1200px] overflow-hidden rounded-xl bg-black"
             onClick={(event) => event.stopPropagation()}
-            onMouseMove={handleMagnifierMove}
-            onMouseLeave={() => setLensState(null)}
           >
             <img
               src={postImages[selectedImageIndex]}
               alt={post.title}
-              className="block max-h-[90vh] max-w-[95vw] object-contain"
+              className={`block h-full w-full object-contain transition-transform duration-200 ease-out ${
+                modalImageZoom === 1 ? 'cursor-zoom-in' : 'cursor-zoom-out'
+              }`}
+              onClick={handleModalImageClick}
+              style={{
+                transform: `scale(${modalImageZoom})`,
+                transformOrigin: modalZoomOrigin,
+              }}
             />
 
-            {lensState ? (
-              <div
-                className="pointer-events-none absolute overflow-hidden border-2 border-white/95"
-                style={{
-                  left: lensState.left,
-                  top: lensState.top,
-                  width: lensState.lensW,
-                  height: lensState.lensH,
-                  backgroundColor: 'rgba(0,0,0,0.25)',
-                }}
-              >
-                <img
-                  src={postImages[selectedImageIndex]}
-                  alt="Zoom dinamico"
-                  className="absolute left-0 top-0 h-full w-full object-cover"
-                  style={{
-                    width: lensState.imgW * ZOOM_FACTOR,
-                    height: lensState.imgH * ZOOM_FACTOR,
-                    maxWidth: 'none',
-                    transform: `translate(${-lensState.left * ZOOM_FACTOR}px, ${-lensState.top * ZOOM_FACTOR}px)`,
-                    transformOrigin: 'top left',
-                  }}
-                />
-              </div>
-            ) : null}
+            {/*
+              Lupa secundaria desactivada:
+              se removio porque duplicaba el zoom, introducia pixelado y no mejoraba la lectura de imagen.
+            */}
           </div>
         </div>
       ) : null}
