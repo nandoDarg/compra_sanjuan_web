@@ -10,6 +10,7 @@ import CategoryFilter from '@/components/ui/category-filter'
 import CategorySidebar from '@/components/ui/category-sidebar'
 import ActiveFilterChips from '@/components/ui/active-filter-chips'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
+import { normalizeCategoryValue } from '@/lib/category-normalization'
 
 type Post = {
   id: string
@@ -17,6 +18,7 @@ type Post = {
   description: string
   price: number
   category: string
+  condition: 'new' | 'used' | null
   location_department: string | null
   image_url: string | null
   created_at: string
@@ -34,6 +36,11 @@ type CategoryStat = {
   name: string
   postCount: number
   clickCount: number
+}
+
+const normalizePostCategory = (value: string) => {
+  const normalized = normalizeCategoryValue(value)
+  return normalized || 'Otros'
 }
 
 const SUGGESTION_LIMIT = 5
@@ -267,6 +274,25 @@ function HomeContent() {
     [pathname, router, searchParams]
   )
 
+  const selectedCondition = useMemo(() => {
+    const val = searchParams.get('condition')
+    return val === 'new' || val === 'used' ? val : null
+  }, [searchParams])
+
+  const updateCondition = useCallback(
+    (nextValue: 'new' | 'used' | null) => {
+      const params = new URLSearchParams(searchParams.toString())
+      if (nextValue) {
+        params.set('condition', nextValue)
+      } else {
+        params.delete('condition')
+      }
+      const nextQueryString = params.toString()
+      router.replace(nextQueryString ? `${pathname}?${nextQueryString}` : pathname)
+    },
+    [pathname, router, searchParams]
+  )
+
   const handleCategoryChange = (category: string) => {
     setSelectedCategory(category)
     trackEvent(ANALYTICS_EVENTS.CATEGORY_SELECTED, { category })
@@ -324,7 +350,9 @@ function HomeContent() {
           return accumulator
         }
 
-        accumulator[category] = (accumulator[category] ?? 0) + 1
+        const rootCategory = normalizePostCategory(category)
+
+        accumulator[rootCategory] = (accumulator[rootCategory] ?? 0) + 1
         return accumulator
       }, {})
 
@@ -366,17 +394,13 @@ function HomeContent() {
 
       let query = supabase
         .from('posts')
-        .select('id,title,description,price,category,location_department,image_url,created_at')
+        .select('id,title,description,price,category,condition,location_department,image_url,created_at')
 
       if (searchQuery) {
         const pattern = `%${searchQuery}%`
         query = query.or(
           `title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`
         )
-      }
-
-      if (selectedCategory !== 'Todas') {
-        query = query.eq('category', selectedCategory)
       }
 
       if (sortBy === 'price-asc') {
@@ -387,6 +411,10 @@ function HomeContent() {
         query = query.order('created_at', { ascending: false })
       }
 
+      if (selectedCondition) {
+        query = query.eq('condition', selectedCondition)
+      }
+
       const { data, error } = await query
 
       if (requestId !== loadRequestIdRef.current) {
@@ -395,14 +423,24 @@ function HomeContent() {
 
       if (!error) {
         registerSearchTerm(searchQuery)
-        const basePosts = data ?? []
+        const basePosts = (data ?? []).map((post) => ({
+          ...post,
+          category: normalizePostCategory(post.category),
+        }))
+
+        const postsForDisplay = basePosts.filter(
+          (post) =>
+            (selectedCategory === 'Todas' || post.category === selectedCategory) &&
+            (!selectedCondition || post.condition === selectedCondition)
+        )
+
         const normalizedSearchQuery = normalizeText(searchQuery.trim())
 
         if (normalizedSearchQuery.length > 0) {
           if (lastTrackedSearchQueryRef.current !== normalizedSearchQuery) {
             trackEvent(ANALYTICS_EVENTS.SEARCH_PERFORMED, {
               query: searchQuery.trim(),
-              results_count: basePosts.length,
+              results_count: postsForDisplay.length,
             })
             lastTrackedSearchQueryRef.current = normalizedSearchQuery
           }
@@ -410,35 +448,31 @@ function HomeContent() {
           lastTrackedSearchQueryRef.current = ''
         }
 
-        if (basePosts.length > 0) {
-          setPosts(basePosts)
+        if (postsForDisplay.length > 0) {
+          setPosts(postsForDisplay)
         } else if (searchQuery || selectedCategory !== 'Todas') {
           const fallbackBaseQuery = supabase
             .from('posts')
-            .select('id,title,description,price,category,location_department,image_url,created_at')
+            .select('id,title,description,price,category,condition,location_department,image_url,created_at')
             .order('created_at', { ascending: false })
             .limit(80)
 
-          const fallbackWithCategoryQuery =
-            selectedCategory !== 'Todas'
-              ? fallbackBaseQuery.eq('category', selectedCategory)
-              : fallbackBaseQuery
-
-          const { data: withCategoryData } = await fallbackWithCategoryQuery
+          const { data: withCategoryData } = await fallbackBaseQuery
 
           if (requestId !== loadRequestIdRef.current) {
             return
           }
 
-          const hasCategoryFallback = (withCategoryData?.length ?? 0) > 0
+          const fallbackCandidates = (withCategoryData ?? []).map((post) => ({
+            ...post,
+            category: normalizePostCategory(post.category),
+          }))
 
-          const fallbackCandidates = hasCategoryFallback
-            ? withCategoryData ?? []
-            : (await supabase
-                .from('posts')
-              .select('id,title,description,price,category,location_department,image_url,created_at')
-                .order('created_at', { ascending: false })
-                .limit(80)).data ?? []
+          const filteredFallbackCandidates = fallbackCandidates.filter(
+            (post) =>
+              (selectedCategory === 'Todas' || post.category === selectedCategory) &&
+              (!selectedCondition || post.condition === selectedCondition)
+          )
 
           if (requestId !== loadRequestIdRef.current) {
             return
@@ -447,7 +481,7 @@ function HomeContent() {
           const normalizedQuery = normalizeText(searchQuery)
           const queryTokens = splitTokens(searchQuery)
 
-          const rankedPosts = fallbackCandidates
+          const rankedPosts = filteredFallbackCandidates
             .map((post) => ({
               post,
               score: scorePost(post, normalizedQuery, queryTokens),
@@ -465,12 +499,12 @@ function HomeContent() {
             visibleFallbackPosts = similarPosts.slice(0, 24)
             activeFallbackMode = 'similar'
           } else {
-            const categoryFrequency = fallbackCandidates.reduce((map, current) => {
+            const categoryFrequency = filteredFallbackCandidates.reduce((map, current) => {
               map.set(current.category, (map.get(current.category) ?? 0) + 1)
               return map
             }, new Map<string, number>())
 
-            visibleFallbackPosts = fallbackCandidates
+            visibleFallbackPosts = filteredFallbackCandidates
               .map((post) => ({
                 post,
                 score: scoreByHistory(
@@ -509,12 +543,13 @@ function HomeContent() {
     searchHistoryTerms,
     searchQuery,
     selectedCategory,
+    selectedCondition,
     sortBy,
     supabase,
   ])
 
   const hasFilters =
-    searchQuery.length > 0 || selectedCategory !== 'Todas' || sortBy !== 'recent'
+    searchQuery.length > 0 || selectedCategory !== 'Todas' || sortBy !== 'recent' || selectedCondition !== null
 
   const fallbackCategorySuggestions = useMemo(
     () =>
@@ -539,6 +574,7 @@ function HomeContent() {
     updateSearchQuery('')
     setSelectedCategory('Todas')
     setSortBy('recent')
+    updateCondition(null)
   }
 
   return (
@@ -590,6 +626,26 @@ function HomeContent() {
             onChange={handleCategoryChange}
             className="lg:hidden"
           />
+
+          <div className="flex gap-2">
+            {(['new', 'used'] as const).map((cond) => (
+              <button
+                key={cond}
+                type="button"
+                onClick={() => updateCondition(selectedCondition === cond ? null : cond)}
+                className={[
+                  'whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition',
+                  selectedCondition === cond
+                    ? cond === 'new'
+                      ? 'border-[var(--success)] bg-[var(--success)] text-white shadow-sm'
+                      : 'border-(--brand-secondary) bg-(--brand-secondary) text-white shadow-sm'
+                    : 'thsj-chip hover:border-(--line-strong) hover:bg-(--background-elevated)',
+                ].join(' ')}
+              >
+                {cond === 'new' ? 'Nuevo' : 'Usado'}
+              </button>
+            ))}
+          </div>
 
           <ActiveFilterChips
             searchQuery={searchQuery}

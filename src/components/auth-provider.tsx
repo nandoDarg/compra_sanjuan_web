@@ -23,19 +23,59 @@ export function AuthProvider({
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user)
-      if (data.user) {
-        identifyAnalyticsUser(data.user.id, data.user.email)
-      } else {
-        resetAnalyticsUser()
+    let isMounted = true
+    const loadingTimeoutId = window.setTimeout(() => {
+      if (!isMounted) {
+        return
       }
+
+      // Avoid indefinite UI freeze if auth endpoint hangs on constrained mobile networks.
       setLoading(false)
-    })
+    }, 8000)
+
+    const bootstrapAuth = async () => {
+      try {
+        const { data } = await supabase.auth.getUser()
+
+        if (!isMounted) {
+          return
+        }
+
+        setUser(data.user)
+        if (data.user) {
+          identifyAnalyticsUser(data.user.id, data.user.email)
+        } else {
+          resetAnalyticsUser()
+        }
+      } catch (error) {
+        console.error(error)
+        try {
+          console.error(JSON.stringify(error, null, 2))
+        } catch {
+          console.error('No se pudo serializar el error de auth bootstrap.')
+        }
+
+        if (isMounted) {
+          setUser(null)
+          resetAnalyticsUser()
+        }
+      } finally {
+        if (isMounted) {
+          window.clearTimeout(loadingTimeoutId)
+          setLoading(false)
+        }
+      }
+    }
+
+    void bootstrapAuth()
 
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) {
+        return
+      }
+
       setUser(session?.user ?? null)
       if (session?.user) {
         identifyAnalyticsUser(session.user.id, session.user.email)
@@ -45,7 +85,11 @@ export function AuthProvider({
       setLoading(false)
     })
 
-    return () => subscription.unsubscribe()
+    return () => {
+      isMounted = false
+      window.clearTimeout(loadingTimeoutId)
+      subscription.unsubscribe()
+    }
   }, [supabase])
 
   return (

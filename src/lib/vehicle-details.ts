@@ -37,6 +37,7 @@ export const VEHICLE_CONDITION_OPTIONS = [
 export const VEHICLE_FIRST_OWNER_OPTIONS = ['Si', 'No'] as const
 
 const VEHICLE_CATEGORY_SET = new Set([
+  'vehiculos',
   'automotores',
   'autos',
   'camionetas',

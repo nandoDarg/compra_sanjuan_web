@@ -2,12 +2,7 @@ export const OTHER_CATEGORY_VALUE = '__other__'
 
 // Base inicial inspirada en categorias generales de marketplaces locales como compraensanjuan.
 export const PREDEFINED_POST_CATEGORIES = [
-  'Automotores',
-  'Autos',
-  'Camionetas',
-  'Motos',
-  'Camiones',
-  'Utilitarios',
+  'Vehiculos',
   'Inmuebles',
   'Empleo',
   'Servicios',

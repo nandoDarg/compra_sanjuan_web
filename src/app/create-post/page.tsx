@@ -142,6 +142,7 @@ export default function CreatePostPage() {
           location_department: formData.locationDepartment,
           location_maps_url: formData.locationMapsUrl,
           image_url: primaryImage.publicUrl,
+          condition: formData.condition ?? null,
         })
         .select('id')
         .single()

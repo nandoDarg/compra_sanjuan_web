@@ -14,4 +14,4 @@ PENDIENTES:
 10. ranking de las publicaciones segun el grado de completud de la publicacion y la calidad de las fotos.
 11. ver de que manera el algoritmo de los buscadores encuentra con mas facilidad mi pagina y las publicaciones dentro de ella.
 12. mejorar el zoom de las imagenes: al hacer clic debe abrirse la pantalla completa con el zoom, al dar nuevo clic debe agrandarse aun mas la imagen y ahi con clic y arrastrar debe poderse mover la imagen recorriendola completa, ahora se queda quieta en la parte ampliada y no se puede mover. 
-13. el desplegable de ordenar: Mas recientes, Menor precio, Mayor precio, debe estar antecedido por un Ordenar por: 
+13. el desplegable de ordenar: Mas recientes, Menor precio, Mayor precio, debe estar antecedido por un texto "Ordenar por:"

@@ -18,6 +18,7 @@ type Post = {
   description: string
   price: number
   category: string
+  condition: 'new' | 'used' | null
   whatsapp_number: string | null
   location_department: string | null
   location_maps_url: string | null
@@ -54,7 +55,7 @@ export default function EditPostPage() {
 
       const { data, error } = await supabase
         .from('posts')
-        .select('id,user_id,title,description,price,category,whatsapp_number,location_department,location_maps_url,image_url')
+        .select('id,user_id,title,description,price,category,condition,whatsapp_number,location_department,location_maps_url,image_url')
         .eq('id', postId)
         .eq('user_id', user.id)
         .single()
@@ -186,6 +187,7 @@ export default function EditPostPage() {
         location_department: formData.locationDepartment,
         location_maps_url: formData.locationMapsUrl,
         image_url: primaryImageUrl,
+        condition: formData.condition ?? null,
       })
       .eq('id', post.id)
       .eq('user_id', user.id)
@@ -282,6 +284,7 @@ export default function EditPostPage() {
         imageUrl: post.image_url,
         existingImageUrls: existingGalleryUrls,
         vehicleDetails,
+        condition: post.condition,
       }}
       onSubmit={handleSubmit}
     />

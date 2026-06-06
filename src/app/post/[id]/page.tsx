@@ -20,6 +20,7 @@ type Post = {
   description: string
   price: number
   category: string
+  condition: 'new' | 'used' | null
   whatsapp_number: string | null
   location_department: string | null
   location_maps_url: string | null
@@ -95,7 +96,7 @@ export default function PostDetailPage() {
 
       const { data, error } = await supabase
         .from('posts')
-        .select('id,user_id,title,description,price,category,whatsapp_number,location_department,location_maps_url,image_url,created_at')
+        .select('id,user_id,title,description,price,category,condition,whatsapp_number,location_department,location_maps_url,image_url,created_at')
         .eq('id', postId)
         .single()
 
@@ -140,7 +141,7 @@ export default function PostDetailPage() {
 
       const { data: relatedData } = await supabase
         .from('posts')
-        .select('id,user_id,title,description,price,category,whatsapp_number,location_department,location_maps_url,image_url,created_at')
+        .select('id,user_id,title,description,price,category,condition,whatsapp_number,location_department,location_maps_url,image_url,created_at')
         .eq('category', data.category)
         .neq('id', data.id)
         .order('created_at', { ascending: false })
@@ -259,7 +260,16 @@ export default function PostDetailPage() {
       category: post.category,
     })
 
-    const message = encodeURIComponent('Hola, te contacto por tu publicacion en tratohechoSJ')
+    const listingUrl = window.location.href
+    const formattedPrice = new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'ARS',
+      maximumFractionDigits: 2,
+    }).format(post.price)
+
+    const message = encodeURIComponent(
+      `Hola, vi tu publicación en tratohechoSJ:\n${post.title}\n${formattedPrice}\n${listingUrl}`
+    )
     window.open(`https://wa.me/${number}?text=${message}`, '_blank', 'noopener,noreferrer')
   }
 
@@ -442,6 +452,19 @@ export default function PostDetailPage() {
           <div className="thsj-chip inline-flex items-center px-3 py-1 text-xs font-medium">
             {post.category}
           </div>
+
+          {post.condition ? (
+            <span
+              className={[
+                'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
+                post.condition === 'new'
+                  ? 'border-[var(--success)] bg-[#dcfce7] text-[var(--success)]'
+                  : 'border-(--line-strong) bg-(--background-muted) text-(--foreground-muted)',
+              ].join(' ')}
+            >
+              {post.condition === 'new' ? 'Nuevo' : 'Usado'}
+            </span>
+          ) : null}
 
           <h1 className="mt-3 text-2xl font-bold leading-tight text-foreground sm:text-3xl">
             {post.title}

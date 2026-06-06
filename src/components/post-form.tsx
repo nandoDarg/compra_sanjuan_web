@@ -52,6 +52,7 @@ export type PostFormSubmitData = {
   vehicleDetails: VehicleDetailsInput | null
   locationDepartment: string
   locationMapsUrl: string | null
+  condition: 'new' | 'used' | null
 }
 
 type GalleryItem = {
@@ -83,6 +84,7 @@ type PostFormProps = {
     locationMapsUrl: string | null
     existingImageUrls?: string[]
     vehicleDetails?: VehicleDetailsInput | null
+    condition?: 'new' | 'used' | null
   }
   cancelHref?: string
   onSubmit: (data: PostFormSubmitData) => Promise<{ error?: string } | void>
@@ -106,6 +108,7 @@ type PostFormDraft = {
   form: PostFormValues
   selectedCategory: string
   customCategory: string
+  condition: string
   vehicleForm: VehicleFormValues
   existingImageUrls: string[]
 }
@@ -114,6 +117,7 @@ type FormChangeSnapshot = {
   form: PostFormValues
   selectedCategory: string
   customCategory: string
+  condition: string
   vehicleForm: VehicleFormValues
   gallery: Array<{ kind: GalleryItem['kind']; value: string }>
 }
@@ -162,6 +166,7 @@ function buildFormChangeSnapshot(args: {
   form: PostFormValues
   selectedCategory: string
   customCategory: string
+  condition: string
   vehicleForm: VehicleFormValues
   galleryItems: GalleryItem[]
 }): FormChangeSnapshot {
@@ -169,6 +174,7 @@ function buildFormChangeSnapshot(args: {
     form: args.form,
     selectedCategory: args.selectedCategory,
     customCategory: args.customCategory,
+    condition: args.condition,
     vehicleForm: args.vehicleForm,
     gallery: args.galleryItems.map((item) => ({
       kind: item.kind,
@@ -399,13 +405,21 @@ export default function PostForm({
       return ''
     }
 
-    return isPredefinedCategory(initialValues.category)
-      ? initialValues.category
+    const normalizedInitialCategory = normalizeCategoryValue(initialValues.category)
+
+    return isPredefinedCategory(normalizedInitialCategory)
+      ? normalizedInitialCategory
       : OTHER_CATEGORY_VALUE
   }, [initialValues])
 
   const defaultCustomCategory = useMemo(() => {
-    if (!initialValues?.category || isPredefinedCategory(initialValues.category)) {
+    if (!initialValues?.category) {
+      return ''
+    }
+
+    const normalizedInitialCategory = normalizeCategoryValue(initialValues.category)
+
+    if (isPredefinedCategory(normalizedInitialCategory)) {
       return ''
     }
 
@@ -469,7 +483,15 @@ export default function PostForm({
   const [applyingCrop, setApplyingCrop] = useState(false)
   const [lastSavedSnapshotKey, setLastSavedSnapshotKey] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement | null>(null)
+  const cameraInputRef = useRef<HTMLInputElement | null>(null)
   const [vehicleForm, setVehicleForm] = useState<VehicleFormValues>(() => draft?.vehicleForm ?? defaultVehicleForm)
+  const [condition, setCondition] = useState<'new' | 'used' | null>(() => {
+    const fromDraft = draft?.condition
+    if (fromDraft === 'new' || fromDraft === 'used') return fromDraft
+    return initialValues?.condition ?? null
+  })
+  const [isDragOver, setIsDragOver] = useState(false)
+  const [showUrlInput, setShowUrlInput] = useState(false)
 
   const initialSnapshotKey = useMemo(
     () =>
@@ -478,6 +500,7 @@ export default function PostForm({
           form: defaultFormValues,
           selectedCategory: defaultSelectedCategory,
           customCategory: defaultCustomCategory,
+          condition: initialValues?.condition ?? '',
           vehicleForm: defaultVehicleForm,
           galleryItems: defaultExistingImageUrls.map((url) => ({
             id: `existing-snapshot-${url}`,
@@ -502,11 +525,12 @@ export default function PostForm({
           form,
           selectedCategory,
           customCategory,
+          condition: condition ?? '',
           vehicleForm,
           galleryItems,
         })
       ),
-    [customCategory, form, galleryItems, selectedCategory, vehicleForm]
+    [condition, customCategory, form, galleryItems, selectedCategory, vehicleForm]
   )
 
   const hasPendingChanges =
@@ -521,6 +545,7 @@ export default function PostForm({
       form,
       selectedCategory,
       customCategory,
+      condition: condition ?? '',
       vehicleForm,
       existingImageUrls: galleryItems
         .filter((item) => item.kind === 'existing')
@@ -529,6 +554,7 @@ export default function PostForm({
 
     window.localStorage.setItem(draftStorageKey, JSON.stringify(payload))
   }, [
+    condition,
     customCategory,
     draftStorageKey,
     form,
@@ -546,6 +572,18 @@ export default function PostForm({
       }
     }
   }, [galleryItems])
+
+  const handleZoneDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setIsDragOver(true)
+  }
+  const handleZoneDragLeave = () => setIsDragOver(false)
+  const handleZoneDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault()
+    setIsDragOver(false)
+    const files = Array.from(event.dataTransfer.files).filter((f) => f.type.startsWith('image/'))
+    if (files.length > 0) void addImageFiles(files)
+  }
 
   const needsImage = mode === 'create' && galleryItems.length === 0
   const effectiveCategory = normalizeCategoryValue(
@@ -651,6 +689,27 @@ export default function PostForm({
       setImportingUrl(false)
     }
   }
+
+  // Paste from clipboard (Ctrl+V / Cmd+V)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      const files: File[] = []
+      if (event.clipboardData?.items) {
+        for (const item of Array.from(event.clipboardData.items)) {
+          if (item.kind === 'file' && item.type.startsWith('image/')) {
+            const f = item.getAsFile()
+            if (f) files.push(f)
+          }
+        }
+      }
+      if (files.length > 0) void addImageFiles(files)
+    }
+    document.addEventListener('paste', handlePaste)
+    return () => document.removeEventListener('paste', handlePaste)
+  // addImageFiles is intentionally excluded to avoid re-registering on every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const removeGalleryItem = (idToRemove: string) => {
     setGalleryItems((previous) => {
@@ -866,6 +925,7 @@ export default function PostForm({
         vehicleDetails: vehicleDetailsPayload,
         locationDepartment: form.locationDepartment.trim(),
         locationMapsUrl: form.locationMapsUrl.trim() ? form.locationMapsUrl.trim() : null,
+        condition,
       })
     } catch (error) {
       console.error(error)
@@ -986,6 +1046,38 @@ export default function PostForm({
               Si no existe tu categoria, usa la opcion Otra provisoria. Luego la sumamos al listado oficial.
             </span>
           </label>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-sm font-medium text-foreground">
+            Estado del producto <span className="font-normal text-(--foreground-muted)">(opcional)</span>
+          </span>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setCondition(condition === 'new' ? null : 'new')}
+              className={[
+                'thsj-btn px-4 py-2 text-sm',
+                condition === 'new'
+                  ? 'border-[var(--success)] bg-[var(--success)] text-white'
+                  : 'thsj-btn-ghost',
+              ].join(' ')}
+            >
+              Nuevo
+            </button>
+            <button
+              type="button"
+              onClick={() => setCondition(condition === 'used' ? null : 'used')}
+              className={[
+                'thsj-btn px-4 py-2 text-sm',
+                condition === 'used'
+                  ? 'border-[var(--brand-secondary)] bg-[var(--brand-secondary)] text-white'
+                  : 'thsj-btn-ghost',
+              ].join(' ')}
+            >
+              Usado
+            </button>
+          </div>
         </div>
 
         {showVehicleSection ? (
@@ -1213,13 +1305,13 @@ export default function PostForm({
           </div>
         </div>
 
-        <label className="flex flex-col gap-1.5">
-          <span className="text-sm font-medium text-foreground">
-            {mode === 'create' ? 'Imagenes' : 'Imagenes'}
-          </span>
+        <div className="flex flex-col gap-2">
+          <span className="text-sm font-medium text-foreground">Imagenes</span>
+
+          {/* Hidden file inputs */}
           <input
             ref={imageInputRef}
-            className="thsj-input px-3 py-2.5 text-foreground file:mr-3 file:rounded-lg file:border-0 file:bg-(--brand-secondary) file:px-3 file:py-2 file:text-sm file:font-medium file:text-white hover:file:bg-[#152638]"
+            className="sr-only"
             type="file"
             accept="image/*"
             multiple
@@ -1228,110 +1320,205 @@ export default function PostForm({
               void addImageFiles(Array.from(event.target.files ?? []))
               event.currentTarget.value = ''
             }}
-            required={mode === 'create' && galleryItems.length === 0}
+          />
+          <input
+            ref={cameraInputRef}
+            className="sr-only"
+            type="file"
+            accept="image/*"
+            capture="environment"
+            disabled={processingImages || galleryItems.length >= MAX_IMAGES}
+            onChange={(event) => {
+              void addImageFiles(Array.from(event.target.files ?? []))
+              event.currentTarget.value = ''
+            }}
           />
 
-          <div className="mt-2 grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]">
-            <input
-              type="url"
-              className="thsj-input px-3 py-2.5"
-              value={imageImportUrl}
-              onChange={(event) => setImageImportUrl(event.target.value)}
-              placeholder="Pegar enlace de Google Drive o imagen directa"
-            />
-            <button
-              type="button"
-              onClick={handleImportFromUrl}
-              disabled={importingUrl || processingImages}
-              className="thsj-btn thsj-btn-ghost disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {importingUrl ? 'Importando...' : 'Importar enlace'}
-            </button>
-          </div>
-
-          <span className="text-xs text-(--foreground-muted)">
-            Google Drive: comparte el archivo con acceso publico y pega el link.
-          </span>
-
-          <span className="text-xs text-(--foreground-muted)">Limite: hasta {MAX_IMAGES} imagenes.</span>
-
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              type="button"
-              onClick={() => imageInputRef.current?.click()}
-              disabled={processingImages || galleryItems.length >= MAX_IMAGES}
-              className="thsj-btn thsj-btn-ghost px-3 py-1.5 text-xs disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {processingImages ? 'Procesando...' : 'Agregar mas fotos'}
-            </button>
-          </div>
-
-          {showVehicleSection ? (
-            <div className="mt-2 rounded-xl border border-(--line) bg-(--background-muted) p-3">
-              <p className="text-xs font-medium uppercase tracking-wide text-(--foreground-muted)">
-                Guia sugerida para vehiculos (estilo marketplace)
-              </p>
-              <p className="mt-1 text-xs text-(--foreground-muted)">
-                Carga y ordena las fotos en este orden para mejorar conversion: {VEHICLE_PHOTO_ORDER.join(' - ')}.
-              </p>
-            </div>
-          ) : null}
-
-          {galleryItems.length > 0 ? (
-            <div className="mt-3 rounded-xl border border-(--line) bg-(--background-muted) p-3">
-              <p className="mb-2 text-xs font-medium uppercase tracking-wide text-(--foreground-muted)">
-                Imagenes ({galleryItems.length}) - arrastra para reordenar
-              </p>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
-                {galleryItems.map((item, index) => (
-                  <div
-                    key={item.id}
-                    className="relative aspect-square overflow-hidden rounded-lg border border-(--line) bg-(--background-elevated)"
-                    draggable
-                    onDragStart={() => handleDragStart(item.id)}
-                    onDragEnd={() => setDraggingImageId(null)}
-                    onDragOver={(event) => event.preventDefault()}
-                    onDrop={() => handleDropOn(item.id)}
+          {/* Unified drop zone */}
+          <div
+            onDragOver={handleZoneDragOver}
+            onDragLeave={handleZoneDragLeave}
+            onDrop={handleZoneDrop}
+            className={[
+              'rounded-xl border-2 border-dashed transition',
+              isDragOver
+                ? 'border-(--brand-primary) bg-[rgba(11,122,117,0.05)]'
+                : 'border-(--line)',
+            ].join(' ')}
+          >
+            {galleryItems.length === 0 ? (
+              <div
+                className="flex cursor-pointer flex-col items-center gap-3 px-6 py-8 text-center"
+                onClick={() => imageInputRef.current?.click()}
+              >
+                <svg className="h-10 w-10 text-(--foreground-muted)" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5m-13.5-9L12 3m0 0 4.5 4.5M12 3v13.5" />
+                </svg>
+                <div>
+                  <p className="font-medium text-foreground">Arrastrá tus fotos aquí</p>
+                  <p className="mt-0.5 text-sm text-(--foreground-muted)">o usá una de las opciones de abajo</p>
+                </div>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); imageInputRef.current?.click() }}
+                    disabled={processingImages}
+                    className="thsj-btn thsj-btn-ghost px-3 py-1.5 text-xs disabled:opacity-60"
                   >
-                    <img
-                      src={item.url}
-                      alt={`Imagen ${index + 1}`}
-                      className="h-full w-full object-cover"
+                    Explorar archivos
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click() }}
+                    disabled={processingImages}
+                    className="thsj-btn thsj-btn-ghost px-3 py-1.5 text-xs disabled:opacity-60"
+                  >
+                    Tomar foto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowUrlInput((v) => !v) }}
+                    className="thsj-btn thsj-btn-ghost px-3 py-1.5 text-xs"
+                  >
+                    Pegar URL
+                  </button>
+                </div>
+                {showUrlInput ? (
+                  <div className="flex w-full max-w-sm gap-2" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="url"
+                      className="thsj-input min-w-0 flex-1 px-3 py-2 text-sm"
+                      value={imageImportUrl}
+                      onChange={(event) => setImageImportUrl(event.target.value)}
+                      placeholder="https://..."
                     />
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/55 to-transparent px-2 py-1 text-xs text-white">
-                      {index === 0 ? 'Principal' : `Foto ${index + 1}`}
-                      {showVehicleSection && VEHICLE_PHOTO_ORDER[index] ? ` - ${VEHICLE_PHOTO_ORDER[index]}` : ''}
-                    </div>
                     <button
                       type="button"
-                      onClick={() => setCropTarget({ itemId: item.id, itemUrl: item.url })}
-                      className="absolute left-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-(--line) bg-white/95 text-xs leading-none text-(--foreground-muted) shadow-sm transition hover:bg-white hover:text-foreground"
-                      aria-label={`Editar imagen ${index + 1}`}
-                      title="Recortar/Reencuadrar"
+                      onClick={handleImportFromUrl}
+                      disabled={importingUrl || processingImages}
+                      className="thsj-btn thsj-btn-ghost px-3 py-2 text-xs disabled:opacity-60"
                     >
-                      ✎
+                      {importingUrl ? '...' : 'Importar'}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => removeGalleryItem(item.id)}
-                      className="absolute right-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-(--line) bg-white/95 text-base leading-none text-(--foreground-muted) shadow-sm transition hover:bg-white hover:text-foreground"
-                      aria-label={`Quitar imagen ${index + 1}`}
-                    >
-                      ×
-                    </button>
-                    {draggingImageId === item.id ? (
-                      <div className="pointer-events-none absolute inset-0 border-2 border-dashed border-(--brand-primary)" />
-                    ) : null}
                   </div>
-                ))}
+                ) : null}
+                <p className="text-xs text-(--foreground-muted)">
+                  {processingImages ? 'Procesando...' : `Hasta ${MAX_IMAGES} imágenes · Ctrl+V para pegar`}
+                </p>
               </div>
-            </div>
-          ) : null}
+            ) : (
+              <div className="p-3">
+                <div className="mb-3 flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); imageInputRef.current?.click() }}
+                    disabled={processingImages || galleryItems.length >= MAX_IMAGES}
+                    className="thsj-btn thsj-btn-ghost px-3 py-1.5 text-xs disabled:opacity-60"
+                  >
+                    {processingImages ? 'Procesando...' : 'Explorar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click() }}
+                    disabled={processingImages || galleryItems.length >= MAX_IMAGES}
+                    className="thsj-btn thsj-btn-ghost px-3 py-1.5 text-xs disabled:opacity-60"
+                  >
+                    Tomar foto
+                  </button>
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); setShowUrlInput((v) => !v) }}
+                    className="thsj-btn thsj-btn-ghost px-3 py-1.5 text-xs"
+                  >
+                    Pegar URL
+                  </button>
+                  <span className="ml-auto text-xs text-(--foreground-muted)">
+                    {galleryItems.length}/{MAX_IMAGES} · arrastrá para reordenar
+                  </span>
+                </div>
+
+                {showUrlInput ? (
+                  <div className="mb-3 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <input
+                      type="url"
+                      className="thsj-input min-w-0 flex-1 px-3 py-2 text-sm"
+                      value={imageImportUrl}
+                      onChange={(event) => setImageImportUrl(event.target.value)}
+                      placeholder="https://..."
+                    />
+                    <button
+                      type="button"
+                      onClick={handleImportFromUrl}
+                      disabled={importingUrl || processingImages}
+                      className="thsj-btn thsj-btn-ghost px-3 py-2 text-xs disabled:opacity-60"
+                    >
+                      {importingUrl ? '...' : 'Importar'}
+                    </button>
+                  </div>
+                ) : null}
+
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4">
+                  {galleryItems.map((item, index) => (
+                    <div
+                      key={item.id}
+                      className="relative aspect-square overflow-hidden rounded-lg border border-(--line) bg-(--background-elevated)"
+                      draggable
+                      onDragStart={() => handleDragStart(item.id)}
+                      onDragEnd={() => setDraggingImageId(null)}
+                      onDragOver={(event) => { event.stopPropagation(); event.preventDefault() }}
+                      onDrop={(event) => { event.stopPropagation(); handleDropOn(item.id) }}
+                    >
+                      <img
+                        src={item.url}
+                        alt={`Imagen ${index + 1}`}
+                        className="h-full w-full object-cover"
+                      />
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-linear-to-t from-black/55 to-transparent px-2 py-1 text-xs text-white">
+                        {index === 0 ? 'Principal' : `Foto ${index + 1}`}
+                        {showVehicleSection && VEHICLE_PHOTO_ORDER[index] ? ` - ${VEHICLE_PHOTO_ORDER[index]}` : ''}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setCropTarget({ itemId: item.id, itemUrl: item.url })}
+                        className="absolute left-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-(--line) bg-white/95 text-xs leading-none text-(--foreground-muted) shadow-sm transition hover:bg-white hover:text-foreground"
+                        aria-label={`Editar imagen ${index + 1}`}
+                        title="Recortar/Reencuadrar"
+                      >
+                        ✎
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => removeGalleryItem(item.id)}
+                        className="absolute right-1.5 top-1.5 inline-flex h-7 w-7 items-center justify-center rounded-full border border-(--line) bg-white/95 text-base leading-none text-(--foreground-muted) shadow-sm transition hover:bg-white hover:text-foreground"
+                        aria-label={`Quitar imagen ${index + 1}`}
+                      >
+                        ×
+                      </button>
+                      {draggingImageId === item.id ? (
+                        <div className="pointer-events-none absolute inset-0 border-2 border-dashed border-(--brand-primary)" />
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+
+                {showVehicleSection ? (
+                  <div className="mt-3 rounded-xl border border-(--line) bg-(--background-muted) p-3">
+                    <p className="text-xs font-medium uppercase tracking-wide text-(--foreground-muted)">
+                      Guia sugerida para vehiculos (estilo marketplace)
+                    </p>
+                    <p className="mt-1 text-xs text-(--foreground-muted)">
+                      Carga y ordena las fotos en este orden para mejorar conversion: {VEHICLE_PHOTO_ORDER.join(' - ')}.
+                    </p>
+                  </div>
+                ) : null}
+              </div>
+            )}
+          </div>
 
           {needsImage ? (
             <span className="text-xs text-(--foreground-muted)">Agrega al menos una imagen para publicar.</span>
           ) : null}
-        </label>
+        </div>
 
         {cropTarget ? (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
