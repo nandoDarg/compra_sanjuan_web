@@ -1,3 +1,5 @@
+import { isVehicleRootCategory } from '@/lib/hierarchical-categories'
+
 export const VEHICLE_BRAND_OPTIONS = [
   'Toyota',
   'Ford',
@@ -36,26 +38,8 @@ export const VEHICLE_CONDITION_OPTIONS = [
 
 export const VEHICLE_FIRST_OWNER_OPTIONS = ['Si', 'No'] as const
 
-const VEHICLE_CATEGORY_SET = new Set([
-  'vehiculos',
-  'automotores',
-  'autos',
-  'camionetas',
-  'motos',
-  'camiones',
-  'utilitarios',
-])
-
-function normalizeCategoryKey(value: string) {
-  return value
-    .toLowerCase()
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-}
-
 export function isVehicleCategory(category: string) {
-  return VEHICLE_CATEGORY_SET.has(normalizeCategoryKey(category))
+  return isVehicleRootCategory(category)
 }
 
 export function getVehicleYearRange() {

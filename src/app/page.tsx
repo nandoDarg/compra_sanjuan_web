@@ -10,7 +10,12 @@ import CategoryFilter from '@/components/ui/category-filter'
 import CategorySidebar from '@/components/ui/category-sidebar'
 import ActiveFilterChips from '@/components/ui/active-filter-chips'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
-import { normalizeCategoryValue } from '@/lib/category-normalization'
+import {
+  CATEGORY_TREE,
+  getCategoryPathLabel,
+  resolveCategorySelection,
+} from '@/lib/hierarchical-categories'
+import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
 
 type Post = {
   id: string
@@ -18,6 +23,7 @@ type Post = {
   description: string
   price: number
   category: string
+  subcategory: string | null
   condition: 'new' | 'used' | null
   location_department: string | null
   image_url: string | null
@@ -29,19 +35,23 @@ type FallbackMode = 'none' | 'similar' | 'history'
 type SearchHistoryRecord = { term: string; timestamp: string }
 type InteractionHistoryRecord = {
   postId: string
-  category: string
+  categoryPath: string
   timestamp: string
 }
 type CategoryStat = {
   name: string
   postCount: number
-  clickCount: number
+  subcategories: Array<{
+    name: string
+    postCount: number
+  }>
 }
 
-const normalizePostCategory = (value: string) => {
-  const normalized = normalizeCategoryValue(value)
-  return normalized || 'Otros'
-}
+const POSTS_SELECT_WITH_SUBCATEGORY =
+  'id,title,description,price,category,subcategory,condition,location_department,image_url,created_at'
+
+const POSTS_SELECT_LEGACY =
+  'id,title,description,price,category,condition,location_department,image_url,created_at'
 
 const SUGGESTION_LIMIT = 5
 const HISTORY_MAX_ITEMS = 12
@@ -116,7 +126,7 @@ const readInteractionHistory = (viewerId: string) => {
   }
 
   return parsed.filter(
-    (item) => typeof item?.postId === 'string' && typeof item?.category === 'string'
+    (item) => typeof item?.postId === 'string' && typeof item?.categoryPath === 'string'
   )
 }
 
@@ -156,7 +166,7 @@ const scorePost = (post: Post, query: string, tokens: string[]) => {
 const scoreByHistory = (
   post: Post,
   searchHistoryTerms: string[],
-  interactionCategories: string[],
+  interactionCategoryPaths: string[],
   interactionsByPostId: Set<string>,
   categoryFrequency: Map<string, number>
 ) => {
@@ -176,8 +186,10 @@ const scoreByHistory = (
     if (category.includes(normalizedTerm)) score += 2
   }
 
-  const categoryAffinity = interactionCategories.reduce((acc, current) => {
-    return normalizeText(current) === category ? acc + 1 : acc
+  const categoryPath = normalizeText(getCategoryPathLabel(post.category, post.subcategory))
+
+  const categoryAffinity = interactionCategoryPaths.reduce((acc, current) => {
+    return normalizeText(current) === categoryPath ? acc + 1 : acc
   }, 0)
   score += Math.min(categoryAffinity * 2.5, 12)
 
@@ -205,32 +217,37 @@ function HomeContent() {
     () => (searchParams.get('q') ?? '').trim(),
     [searchParams]
   )
+  const selectedCategory = useMemo(
+    () => searchParams.get('category')?.trim() || 'Todas',
+    [searchParams]
+  )
+  const selectedSubcategory = useMemo(
+    () => searchParams.get('subcategory')?.trim() || 'Todas',
+    [searchParams]
+  )
   const [posts, setPosts] = useState<Post[]>([])
-  const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([
-    { name: 'Todas', postCount: 0, clickCount: 0 },
-  ])
+  const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([])
   const [loading, setLoading] = useState(true)
   const [feedError, setFeedError] = useState<string | null>(null)
-  const [selectedCategory, setSelectedCategory] = useState('Todas')
   const [sortBy, setSortBy] = useState<SortOption>('recent')
   const [fallbackMode, setFallbackMode] = useState<FallbackMode>('none')
   const [viewerId, setViewerId] = useState('guest')
   const [searchHistoryTerms, setSearchHistoryTerms] = useState<string[]>([])
-  const [interactionCategories, setInteractionCategories] = useState<string[]>([])
+  const [interactionCategoryPaths, setInteractionCategoryPaths] = useState<string[]>([])
   const [interactionPostIds, setInteractionPostIds] = useState<Set<string>>(new Set())
   const lastTrackedSearchQueryRef = useRef('')
   const loadRequestIdRef = useRef(0)
 
-  const interactionCategoryFrequency = useMemo(() => {
+  const interactionCategoryPathFrequency = useMemo(() => {
     const frequency = new Map<string, number>()
 
-    for (const category of interactionCategories) {
-      const normalized = normalizeText(category)
+    for (const categoryPath of interactionCategoryPaths) {
+      const normalized = normalizeText(categoryPath)
       frequency.set(normalized, (frequency.get(normalized) ?? 0) + 1)
     }
 
     return frequency
-  }, [interactionCategories])
+  }, [interactionCategoryPaths])
 
   const registerSearchTerm = useCallback((term: string) => {
     const normalized = term.trim()
@@ -257,6 +274,29 @@ function HomeContent() {
     writeSearchHistory(viewerId, updated)
     setSearchHistoryTerms(updated.map((item) => item.term))
   }, [viewerId])
+
+  const updateCategoryFilters = useCallback(
+    (category: string, subcategory: string = 'Todas') => {
+      const params = new URLSearchParams(searchParams.toString())
+
+      if (category === 'Todas') {
+        params.delete('category')
+        params.delete('subcategory')
+      } else {
+        params.set('category', category)
+
+        if (subcategory !== 'Todas') {
+          params.set('subcategory', subcategory)
+        } else {
+          params.delete('subcategory')
+        }
+      }
+
+      const nextQueryString = params.toString()
+      router.replace(nextQueryString ? `${pathname}?${nextQueryString}` : pathname)
+    },
+    [pathname, router, searchParams]
+  )
 
   const updateSearchQuery = useCallback(
     (nextValue: string) => {
@@ -294,8 +334,15 @@ function HomeContent() {
   )
 
   const handleCategoryChange = (category: string) => {
-    setSelectedCategory(category)
+    updateCategoryFilters(category, 'Todas')
     trackEvent(ANALYTICS_EVENTS.CATEGORY_SELECTED, { category })
+  }
+
+  const handleSubcategoryChange = (category: string, subcategory: string) => {
+    updateCategoryFilters(category, subcategory)
+    trackEvent(ANALYTICS_EVENTS.CATEGORY_SELECTED, {
+      category: `${category} > ${subcategory}`,
+    })
   }
 
   useEffect(() => {
@@ -308,7 +355,7 @@ function HomeContent() {
       const interactions = readInteractionHistory(userId)
 
       setSearchHistoryTerms(searchHistory.map((item) => item.term))
-      setInteractionCategories(interactions.map((item) => item.category))
+      setInteractionCategoryPaths(interactions.map((item) => item.categoryPath))
       setInteractionPostIds(new Set(interactions.map((item) => item.postId)))
     }
 
@@ -319,22 +366,36 @@ function HomeContent() {
     const existing = readInteractionHistory(viewerId).filter(
       (item) => item.postId !== post.id
     )
+    const categoryPath = getCategoryPathLabel(post.category, post.subcategory)
     const updated = [
-      { postId: post.id, category: post.category, timestamp: new Date().toISOString() },
+      { postId: post.id, categoryPath, timestamp: new Date().toISOString() },
       ...existing,
     ].slice(0, INTERACTIONS_MAX_ITEMS)
 
     writeInteractionHistory(viewerId, updated)
-    setInteractionCategories(updated.map((item) => item.category))
+    setInteractionCategoryPaths(updated.map((item) => item.categoryPath))
     setInteractionPostIds(new Set(updated.map((item) => item.postId)))
   }
 
   useEffect(() => {
     const loadCategories = async () => {
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('posts')
-        .select('category')
+        .select('category,subcategory')
         .not('category', 'is', null)
+
+      if (error && isMissingSubcategoryColumnError(error)) {
+        const fallbackResult = await supabase
+          .from('posts')
+          .select('category')
+          .not('category', 'is', null)
+
+        error = fallbackResult.error
+        data = (fallbackResult.data ?? []).map((row) => ({
+          category: row.category,
+          subcategory: null,
+        }))
+      }
 
       if (error || !data) {
         if (error) {
@@ -343,28 +404,38 @@ function HomeContent() {
         return
       }
 
-      const postCountByCategory = data.reduce<Record<string, number>>((accumulator, item) => {
-        const category = item.category?.trim()
+      const rootCountByCategory = new Map<string, number>()
+      const subcategoryCountByKey = new Map<string, number>()
 
-        if (!category) {
-          return accumulator
+      for (const item of data) {
+        if (!item.category) {
+          continue
         }
 
-        const rootCategory = normalizePostCategory(category)
+        const normalized = resolveCategorySelection(item.category, item.subcategory)
+        rootCountByCategory.set(
+          normalized.category,
+          (rootCountByCategory.get(normalized.category) ?? 0) + 1
+        )
 
-        accumulator[rootCategory] = (accumulator[rootCategory] ?? 0) + 1
-        return accumulator
-      }, {})
+        if (normalized.subcategory) {
+          const subcategoryKey = `${normalized.category}::${normalized.subcategory}`
+          subcategoryCountByKey.set(subcategoryKey, (subcategoryCountByKey.get(subcategoryKey) ?? 0) + 1)
+        }
+      }
 
-      const sortedCategories = Object.entries(postCountByCategory)
-        .map(([name, postCount]) => ({
-          name,
-          postCount,
-          clickCount: interactionCategoryFrequency.get(normalizeText(name)) ?? 0,
-        }))
+      const sortedCategories = CATEGORY_TREE.map((root) => ({
+        name: root.name,
+        postCount: rootCountByCategory.get(root.name) ?? 0,
+        interactionScore: interactionCategoryPathFrequency.get(normalizeText(root.name)) ?? 0,
+        subcategories: (root.children ?? []).map((subcategory) => ({
+          name: subcategory.name,
+          postCount: subcategoryCountByKey.get(`${root.name}::${subcategory.name}`) ?? 0,
+        })),
+      }))
         .sort((left, right) => {
-          if (right.clickCount !== left.clickCount) {
-            return right.clickCount - left.clickCount
+          if (right.interactionScore !== left.interactionScore) {
+            return right.interactionScore - left.interactionScore
           }
 
           if (right.postCount !== left.postCount) {
@@ -374,14 +445,17 @@ function HomeContent() {
           return left.name.localeCompare(right.name)
         })
 
-      setCategoryStats([
-        { name: 'Todas', postCount: data.length, clickCount: 0 },
-        ...sortedCategories,
-      ])
+      const categoryTreeStats = sortedCategories.map((category) => ({
+        name: category.name,
+        postCount: category.postCount,
+        subcategories: category.subcategories,
+      }))
+
+      setCategoryStats(categoryTreeStats)
     }
 
     loadCategories()
-  }, [interactionCategoryFrequency, supabase])
+  }, [interactionCategoryPathFrequency, supabase])
 
   useEffect(() => {
     const loadPosts = async () => {
@@ -394,12 +468,12 @@ function HomeContent() {
 
       let query = supabase
         .from('posts')
-        .select('id,title,description,price,category,condition,location_department,image_url,created_at')
+        .select(POSTS_SELECT_WITH_SUBCATEGORY)
 
       if (searchQuery) {
         const pattern = `%${searchQuery}%`
         query = query.or(
-          `title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`
+          `title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern},subcategory.ilike.${pattern}`
         )
       }
 
@@ -415,7 +489,39 @@ function HomeContent() {
         query = query.eq('condition', selectedCondition)
       }
 
-      const { data, error } = await query
+      let { data, error } = await query
+
+      if (error && isMissingSubcategoryColumnError(error)) {
+        let legacyQuery = supabase
+          .from('posts')
+          .select(POSTS_SELECT_LEGACY)
+
+        if (searchQuery) {
+          const pattern = `%${searchQuery}%`
+          legacyQuery = legacyQuery.or(
+            `title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`
+          )
+        }
+
+        if (sortBy === 'price-asc') {
+          legacyQuery = legacyQuery.order('price', { ascending: true })
+        } else if (sortBy === 'price-desc') {
+          legacyQuery = legacyQuery.order('price', { ascending: false })
+        } else {
+          legacyQuery = legacyQuery.order('created_at', { ascending: false })
+        }
+
+        if (selectedCondition) {
+          legacyQuery = legacyQuery.eq('condition', selectedCondition)
+        }
+
+        const legacyResult = await legacyQuery
+        error = legacyResult.error
+        data = (legacyResult.data ?? []).map((post) => ({
+          ...post,
+          subcategory: null,
+        }))
+      }
 
       if (requestId !== loadRequestIdRef.current) {
         return
@@ -425,12 +531,13 @@ function HomeContent() {
         registerSearchTerm(searchQuery)
         const basePosts = (data ?? []).map((post) => ({
           ...post,
-          category: normalizePostCategory(post.category),
+          ...resolveCategorySelection(post.category, post.subcategory),
         }))
 
         const postsForDisplay = basePosts.filter(
           (post) =>
             (selectedCategory === 'Todas' || post.category === selectedCategory) &&
+            (selectedSubcategory === 'Todas' || post.subcategory === selectedSubcategory) &&
             (!selectedCondition || post.condition === selectedCondition)
         )
 
@@ -450,14 +557,36 @@ function HomeContent() {
 
         if (postsForDisplay.length > 0) {
           setPosts(postsForDisplay)
-        } else if (searchQuery || selectedCategory !== 'Todas') {
+        } else if (searchQuery || selectedCategory !== 'Todas' || selectedSubcategory !== 'Todas') {
           const fallbackBaseQuery = supabase
             .from('posts')
-            .select('id,title,description,price,category,condition,location_department,image_url,created_at')
+            .select(POSTS_SELECT_WITH_SUBCATEGORY)
             .order('created_at', { ascending: false })
             .limit(80)
 
-          const { data: withCategoryData } = await fallbackBaseQuery
+          let { data: withCategoryData, error: fallbackError } = await fallbackBaseQuery
+
+          if (fallbackError && isMissingSubcategoryColumnError(fallbackError)) {
+            const fallbackLegacyQuery = supabase
+              .from('posts')
+              .select(POSTS_SELECT_LEGACY)
+              .order('created_at', { ascending: false })
+              .limit(80)
+
+            const fallbackLegacyResult = await fallbackLegacyQuery
+            fallbackError = fallbackLegacyResult.error
+            withCategoryData = (fallbackLegacyResult.data ?? []).map((post) => ({
+              ...post,
+              subcategory: null,
+            }))
+          }
+
+          if (fallbackError) {
+            setPosts([])
+            setFeedError('No se pudo cargar el feed. Revisa permisos de lectura publica en Supabase.')
+            setLoading(false)
+            return
+          }
 
           if (requestId !== loadRequestIdRef.current) {
             return
@@ -465,12 +594,13 @@ function HomeContent() {
 
           const fallbackCandidates = (withCategoryData ?? []).map((post) => ({
             ...post,
-            category: normalizePostCategory(post.category),
+            ...resolveCategorySelection(post.category, post.subcategory),
           }))
 
           const filteredFallbackCandidates = fallbackCandidates.filter(
             (post) =>
               (selectedCategory === 'Todas' || post.category === selectedCategory) &&
+              (selectedSubcategory === 'Todas' || post.subcategory === selectedSubcategory) &&
               (!selectedCondition || post.condition === selectedCondition)
           )
 
@@ -510,7 +640,7 @@ function HomeContent() {
                 score: scoreByHistory(
                   post,
                   searchHistoryTerms,
-                  interactionCategories,
+                  interactionCategoryPaths,
                   interactionPostIds,
                   categoryFrequency
                 ),
@@ -537,42 +667,43 @@ function HomeContent() {
 
     loadPosts()
   }, [
-    interactionCategories,
+    interactionCategoryPaths,
     interactionPostIds,
     registerSearchTerm,
     searchHistoryTerms,
     searchQuery,
     selectedCategory,
+    selectedSubcategory,
     selectedCondition,
     sortBy,
     supabase,
   ])
 
   const hasFilters =
-    searchQuery.length > 0 || selectedCategory !== 'Todas' || sortBy !== 'recent' || selectedCondition !== null
+    searchQuery.length > 0 ||
+    selectedCategory !== 'Todas' ||
+    selectedSubcategory !== 'Todas' ||
+    sortBy !== 'recent' ||
+    selectedCondition !== null
 
   const fallbackCategorySuggestions = useMemo(
     () =>
       categoryStats
-        .filter((category) => category.name !== 'Todas')
         .map((category) => category.name)
         .slice(0, SUGGESTION_LIMIT),
     [categoryStats]
   )
 
   const mobileCategories = useMemo(
-    () => categoryStats.map((category) => category.name),
-    [categoryStats]
+    () => ['Todas', ...CATEGORY_TREE.map((category) => category.name)],
+    []
   )
 
-  const desktopCategories = useMemo(
-    () => categoryStats.filter((category) => category.name !== 'Todas'),
-    [categoryStats]
-  )
+  const desktopCategories = categoryStats
 
   const clearFilters = () => {
     updateSearchQuery('')
-    setSelectedCategory('Todas')
+    updateCategoryFilters('Todas')
     setSortBy('recent')
     updateCondition(null)
   }
@@ -583,7 +714,9 @@ function HomeContent() {
         <CategorySidebar
           categories={desktopCategories}
           selectedCategory={selectedCategory}
-          onChange={handleCategoryChange}
+          selectedSubcategory={selectedSubcategory}
+          onSelectCategory={handleCategoryChange}
+          onSelectSubcategory={handleSubcategoryChange}
         />
       </div>
 
@@ -650,9 +783,11 @@ function HomeContent() {
           <ActiveFilterChips
             searchQuery={searchQuery}
             selectedCategory={selectedCategory}
+            selectedSubcategory={selectedSubcategory}
             sortBy={sortBy}
             onRemoveSearch={() => updateSearchQuery('')}
             onRemoveCategory={() => handleCategoryChange('Todas')}
+            onRemoveSubcategory={() => updateCategoryFilters(selectedCategory, 'Todas')}
             onRemoveSort={() => setSortBy('recent')}
           />
         </div>
@@ -717,7 +852,7 @@ function HomeContent() {
               id={post.id}
               title={post.title}
               description={post.description}
-              category={post.category}
+              category={getCategoryPathLabel(post.category, post.subcategory)}
               locationDepartment={post.location_department}
               price={post.price}
               imageUrl={post.image_url}

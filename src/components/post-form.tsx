@@ -4,8 +4,7 @@ import Link from 'next/link'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
-import { OTHER_CATEGORY_VALUE, PREDEFINED_POST_CATEGORIES } from '@/lib/post-categories'
-import { normalizeCategoryValue } from '@/lib/category-normalization'
+import { CATEGORY_TREE, getSubcategories, resolveCategorySelection } from '@/lib/hierarchical-categories'
 import {
   getVehicleYearRange,
   isVehicleCategory,
@@ -44,6 +43,7 @@ export type PostFormSubmitData = {
   description: string
   price: number
   category: string
+  subcategory: string
   whatsappNumber: string
   imageFiles: File[]
   newImages: Array<{ id: string; file: File }>
@@ -78,6 +78,7 @@ type PostFormProps = {
     description: string
     price: number
     category: string
+    subcategory?: string | null
     whatsappNumber: string | null
     imageUrl: string | null
     locationDepartment: string | null
@@ -107,7 +108,7 @@ const { min: MIN_VEHICLE_YEAR, max: MAX_VEHICLE_YEAR } = getVehicleYearRange()
 type PostFormDraft = {
   form: PostFormValues
   selectedCategory: string
-  customCategory: string
+  selectedSubcategory: string
   condition: string
   vehicleForm: VehicleFormValues
   existingImageUrls: string[]
@@ -116,7 +117,7 @@ type PostFormDraft = {
 type FormChangeSnapshot = {
   form: PostFormValues
   selectedCategory: string
-  customCategory: string
+  selectedSubcategory: string
   condition: string
   vehicleForm: VehicleFormValues
   gallery: Array<{ kind: GalleryItem['kind']; value: string }>
@@ -165,7 +166,7 @@ function toSnapshotKey(snapshot: FormChangeSnapshot) {
 function buildFormChangeSnapshot(args: {
   form: PostFormValues
   selectedCategory: string
-  customCategory: string
+  selectedSubcategory: string
   condition: string
   vehicleForm: VehicleFormValues
   galleryItems: GalleryItem[]
@@ -173,7 +174,7 @@ function buildFormChangeSnapshot(args: {
   return {
     form: args.form,
     selectedCategory: args.selectedCategory,
-    customCategory: args.customCategory,
+    selectedSubcategory: args.selectedSubcategory,
     condition: args.condition,
     vehicleForm: args.vehicleForm,
     gallery: args.galleryItems.map((item) => ({
@@ -382,8 +383,7 @@ export default function PostForm({
   cancelHref = '/',
   onSubmit,
 }: PostFormProps) {
-  const isPredefinedCategory = (value: string) =>
-    PREDEFINED_POST_CATEGORIES.includes(value as (typeof PREDEFINED_POST_CATEGORIES)[number])
+  const shouldUseDraft = mode === 'create'
 
   const defaultFormValues = useMemo<PostFormValues>(() => {
     if (!initialValues) {
@@ -405,25 +405,15 @@ export default function PostForm({
       return ''
     }
 
-    const normalizedInitialCategory = normalizeCategoryValue(initialValues.category)
-
-    return isPredefinedCategory(normalizedInitialCategory)
-      ? normalizedInitialCategory
-      : OTHER_CATEGORY_VALUE
+    return resolveCategorySelection(initialValues.category, initialValues.subcategory).category
   }, [initialValues])
 
-  const defaultCustomCategory = useMemo(() => {
+  const defaultSelectedSubcategory = useMemo(() => {
     if (!initialValues?.category) {
       return ''
     }
 
-    const normalizedInitialCategory = normalizeCategoryValue(initialValues.category)
-
-    if (isPredefinedCategory(normalizedInitialCategory)) {
-      return ''
-    }
-
-    return initialValues.category
+    return resolveCategorySelection(initialValues.category, initialValues.subcategory).subcategory ?? ''
   }, [initialValues])
 
   const defaultVehicleForm = useMemo<VehicleFormValues>(() => {
@@ -454,14 +444,16 @@ export default function PostForm({
   }, [initialValues])
 
   const draft = useMemo(
-    () => (draftStorageKey ? readDraft(draftStorageKey) : null),
-    [draftStorageKey]
+    () => (shouldUseDraft && draftStorageKey ? readDraft(draftStorageKey) : null),
+    [draftStorageKey, shouldUseDraft]
   )
 
   const [form, setForm] = useState<PostFormValues>(() => draft?.form ?? defaultFormValues)
 
   const [selectedCategory, setSelectedCategory] = useState(() => draft?.selectedCategory ?? defaultSelectedCategory)
-  const [customCategory, setCustomCategory] = useState(() => draft?.customCategory ?? defaultCustomCategory)
+  const [selectedSubcategory, setSelectedSubcategory] = useState(
+    () => draft?.selectedSubcategory ?? defaultSelectedSubcategory
+  )
 
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(() =>
     (draft?.existingImageUrls ?? defaultExistingImageUrls).map((url) => ({
@@ -493,13 +485,18 @@ export default function PostForm({
   const [isDragOver, setIsDragOver] = useState(false)
   const [showUrlInput, setShowUrlInput] = useState(false)
 
+  const availableSubcategories = useMemo(
+    () => getSubcategories(selectedCategory),
+    [selectedCategory]
+  )
+
   const initialSnapshotKey = useMemo(
     () =>
       toSnapshotKey(
         buildFormChangeSnapshot({
           form: defaultFormValues,
           selectedCategory: defaultSelectedCategory,
-          customCategory: defaultCustomCategory,
+          selectedSubcategory: defaultSelectedSubcategory,
           condition: initialValues?.condition ?? '',
           vehicleForm: defaultVehicleForm,
           galleryItems: defaultExistingImageUrls.map((url) => ({
@@ -510,10 +507,11 @@ export default function PostForm({
         })
       ),
     [
-      defaultCustomCategory,
       defaultExistingImageUrls,
       defaultFormValues,
       defaultSelectedCategory,
+      defaultSelectedSubcategory,
+      initialValues?.condition,
       defaultVehicleForm,
     ]
   )
@@ -524,27 +522,27 @@ export default function PostForm({
         buildFormChangeSnapshot({
           form,
           selectedCategory,
-          customCategory,
+          selectedSubcategory,
           condition: condition ?? '',
           vehicleForm,
           galleryItems,
         })
       ),
-    [condition, customCategory, form, galleryItems, selectedCategory, vehicleForm]
+    [condition, form, galleryItems, selectedCategory, selectedSubcategory, vehicleForm]
   )
 
   const hasPendingChanges =
     mode === 'create' ? true : currentSnapshotKey !== (lastSavedSnapshotKey ?? initialSnapshotKey)
 
   useEffect(() => {
-    if (!draftStorageKey || typeof window === 'undefined') {
+    if (!shouldUseDraft || !draftStorageKey || typeof window === 'undefined') {
       return
     }
 
     const payload: PostFormDraft = {
       form,
       selectedCategory,
-      customCategory,
+      selectedSubcategory,
       condition: condition ?? '',
       vehicleForm,
       existingImageUrls: galleryItems
@@ -555,11 +553,12 @@ export default function PostForm({
     window.localStorage.setItem(draftStorageKey, JSON.stringify(payload))
   }, [
     condition,
-    customCategory,
     draftStorageKey,
     form,
     galleryItems,
     selectedCategory,
+    selectedSubcategory,
+    shouldUseDraft,
     vehicleForm,
   ])
 
@@ -586,11 +585,8 @@ export default function PostForm({
   }
 
   const needsImage = mode === 'create' && galleryItems.length === 0
-  const effectiveCategory = normalizeCategoryValue(
-    selectedCategory === OTHER_CATEGORY_VALUE
-      ? customCategory.trim()
-      : selectedCategory.trim()
-  )
+  const effectiveCategory = selectedCategory.trim()
+  const effectiveSubcategory = selectedSubcategory.trim()
   const showVehicleSection = isVehicleCategory(effectiveCategory)
 
   const addImageFiles = async (incoming: File[]) => {
@@ -691,7 +687,6 @@ export default function PostForm({
   }
 
   // Paste from clipboard (Ctrl+V / Cmd+V)
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     const handlePaste = (event: ClipboardEvent) => {
       const files: File[] = []
@@ -798,7 +793,12 @@ export default function PostForm({
     }
 
     if (!finalCategory) {
-      setErrorMsg('Selecciona una categoria o escribe una personalizada.')
+      setErrorMsg('Selecciona una categoria principal.')
+      return
+    }
+
+    if (!effectiveSubcategory) {
+      setErrorMsg('Selecciona una subcategoria.')
       return
     }
 
@@ -917,6 +917,7 @@ export default function PostForm({
         description: form.description.trim(),
         price: parsedPrice,
         category: finalCategory,
+        subcategory: effectiveSubcategory,
         whatsappNumber: normalizedWhatsapp,
         imageFiles: newImages.map((item) => item.file),
         newImages,
@@ -1018,32 +1019,41 @@ export default function PostForm({
             <select
               className="thsj-input px-3 py-2.5"
               value={selectedCategory}
-              onChange={(event) => setSelectedCategory(event.target.value)}
+              onChange={(event) => {
+                setSelectedCategory(event.target.value)
+                setSelectedSubcategory('')
+              }}
               required
             >
               <option value="" disabled>
-                Selecciona una categoria
+                Selecciona una categoria principal
               </option>
-              {PREDEFINED_POST_CATEGORIES.map((category) => (
-                <option key={category} value={category}>
-                  {category}
+              {CATEGORY_TREE.map((category) => (
+                <option key={category.id} value={category.name}>
+                  {category.name}
                 </option>
               ))}
-              <option value={OTHER_CATEGORY_VALUE}>Otra (provisoria)</option>
             </select>
 
-            {selectedCategory === OTHER_CATEGORY_VALUE ? (
-              <input
-                className="thsj-input mt-2 px-3 py-2.5"
-                value={customCategory}
-                onChange={(event) => setCustomCategory(event.target.value)}
-                placeholder="Escribe la categoria que falta"
-                required
-              />
-            ) : null}
+            <select
+              className="thsj-input mt-2 px-3 py-2.5"
+              value={selectedSubcategory}
+              onChange={(event) => setSelectedSubcategory(event.target.value)}
+              disabled={!selectedCategory}
+              required
+            >
+              <option value="" disabled>
+                Selecciona una subcategoria
+              </option>
+              {availableSubcategories.map((subcategory) => (
+                <option key={subcategory.id} value={subcategory.name}>
+                  {subcategory.name}
+                </option>
+              ))}
+            </select>
 
             <span className="text-xs text-(--foreground-muted)">
-              Si no existe tu categoria, usa la opcion Otra provisoria. Luego la sumamos al listado oficial.
+              Primero elige categoria principal y luego subcategoria.
             </span>
           </label>
         </div>
@@ -1504,7 +1514,7 @@ export default function PostForm({
                 {showVehicleSection ? (
                   <div className="mt-3 rounded-xl border border-(--line) bg-(--background-muted) p-3">
                     <p className="text-xs font-medium uppercase tracking-wide text-(--foreground-muted)">
-                      Guia sugerida para vehiculos (estilo marketplace)
+                      Guia sugerida para vehiculos
                     </p>
                     <p className="mt-1 text-xs text-(--foreground-muted)">
                       Carga y ordena las fotos en este orden para mejorar conversion: {VEHICLE_PHOTO_ORDER.join(' - ')}.

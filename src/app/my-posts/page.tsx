@@ -7,7 +7,9 @@ import { useAuth } from '@/components/auth-provider'
 import FeedSkeleton from '@/components/ui/feed-skeleton'
 import EmptyState from '@/components/ui/empty-state'
 import { createClient } from '@/lib/supabase-client'
+import { getCategoryPathLabel, resolveCategorySelection } from '@/lib/hierarchical-categories'
 import { getPostImagePathFromPublicUrl } from '@/lib/post-images'
+import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
 
 type Post = {
   id: string
@@ -16,6 +18,7 @@ type Post = {
   description: string
   price: number
   category: string
+  subcategory: string | null
   image_url: string | null
   created_at: string
 }
@@ -38,11 +41,25 @@ export default function MyPostsPage() {
       setLoading(true)
       setErrorMsg(null)
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('posts')
-        .select('id,user_id,title,description,price,category,image_url,created_at')
+        .select('id,user_id,title,description,price,category,subcategory,image_url,created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
+
+      if (error && isMissingSubcategoryColumnError(error)) {
+        const fallbackResult = await supabase
+          .from('posts')
+          .select('id,user_id,title,description,price,category,image_url,created_at')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+
+        error = fallbackResult.error
+        data = (fallbackResult.data ?? []).map((post) => ({
+          ...post,
+          subcategory: null,
+        }))
+      }
 
       if (error) {
         setErrorMsg(error.message)
@@ -50,7 +67,12 @@ export default function MyPostsPage() {
         return
       }
 
-      setPosts(data ?? [])
+      setPosts(
+        (data ?? []).map((post) => ({
+          ...post,
+          ...resolveCategorySelection(post.category, post.subcategory),
+        }))
+      )
       setLoading(false)
     }
 
@@ -140,7 +162,7 @@ export default function MyPostsPage() {
                 id={post.id}
                 title={post.title}
                 description={post.description}
-                category={post.category}
+                category={getCategoryPathLabel(post.category, post.subcategory)}
                 price={post.price}
                 imageUrl={post.image_url}
                 href={`/post/${post.id}`}

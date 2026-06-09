@@ -18,6 +18,7 @@ type PostCardProps = {
 export default function PostCard({
   id,
   title,
+  category,
   price,
   imageUrl,
   href,
@@ -49,6 +50,10 @@ export default function PostCard({
         <h2 className="min-h-[1.75rem] line-clamp-2 !text-[14px] font-medium leading-[1.15rem] text-[var(--foreground)] sm:min-h-[1.9rem] sm:!text-[14px]">
           {title}
         </h2>
+
+        <p className="line-clamp-1 text-[11px] font-medium uppercase tracking-[0.08em] text-[var(--foreground-muted)]">
+          {category}
+        </p>
       </div>
     </>
   )

@@ -10,6 +10,9 @@ import EmptyState from '@/components/ui/empty-state'
 import PostDetailSkeleton from '@/components/ui/post-detail-skeleton'
 import { createClient } from '@/lib/supabase-client'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
+import { getCategoryPathLabel } from '@/lib/hierarchical-categories'
+import { resolveCategorySelection } from '@/lib/hierarchical-categories'
+import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
 import type { VehicleDetailsInput } from '@/lib/vehicle-details'
 import { isValidGoogleMapsUrl } from '@/lib/post-location'
 
@@ -20,6 +23,7 @@ type Post = {
   description: string
   price: number
   category: string
+  subcategory: string | null
   condition: 'new' | 'used' | null
   whatsapp_number: string | null
   location_department: string | null
@@ -94,11 +98,24 @@ export default function PostDetailPage() {
       setErrorMsg(null)
       setSellerDisplayName('Usuario')
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('posts')
-        .select('id,user_id,title,description,price,category,condition,whatsapp_number,location_department,location_maps_url,image_url,created_at')
+        .select('id,user_id,title,description,price,category,subcategory,condition,whatsapp_number,location_department,location_maps_url,image_url,created_at')
         .eq('id', postId)
         .single()
+
+      if (error && isMissingSubcategoryColumnError(error)) {
+        const fallbackResult = await supabase
+          .from('posts')
+          .select('id,user_id,title,description,price,category,condition,whatsapp_number,location_department,location_maps_url,image_url,created_at')
+          .eq('id', postId)
+          .single()
+
+        error = fallbackResult.error
+        data = fallbackResult.data
+          ? { ...fallbackResult.data, subcategory: null }
+          : null
+      }
 
       if (error || !data) {
         setPost(null)
@@ -107,7 +124,12 @@ export default function PostDetailPage() {
         return
       }
 
-      setPost(data)
+      const normalizedPost = {
+        ...data,
+        ...resolveCategorySelection(data.category, data.subcategory),
+      }
+
+      setPost(normalizedPost)
 
       const { data: profileData } = await supabase
         .from('profiles')
@@ -135,19 +157,53 @@ export default function PostDetailPage() {
         .from('vehicle_details')
         .select('brand,model,year,mileage,fuel_type,transmission,condition,first_owner')
         .eq('post_id', data.id)
+        .limit(1)
         .maybeSingle()
 
       setVehicleDetails((vehicleDetailsData as VehicleDetailsRow | null) ?? null)
 
-      const { data: relatedData } = await supabase
+      let relatedQuery = supabase
         .from('posts')
-        .select('id,user_id,title,description,price,category,condition,whatsapp_number,location_department,location_maps_url,image_url,created_at')
-        .eq('category', data.category)
-        .neq('id', data.id)
+        .select('id,user_id,title,description,price,category,subcategory,condition,whatsapp_number,location_department,location_maps_url,image_url,created_at')
+        .eq('category', normalizedPost.category)
+        .neq('id', normalizedPost.id)
         .order('created_at', { ascending: false })
         .limit(4)
 
-      setRelatedPosts(relatedData ?? [])
+      if (normalizedPost.subcategory) {
+        relatedQuery = relatedQuery.eq('subcategory', normalizedPost.subcategory)
+      }
+
+      let { data: relatedData, error: relatedError } = await relatedQuery
+
+      if (relatedError && isMissingSubcategoryColumnError(relatedError)) {
+        const fallbackRelated = await supabase
+          .from('posts')
+          .select('id,user_id,title,description,price,category,condition,whatsapp_number,location_department,location_maps_url,image_url,created_at')
+          .eq('category', normalizedPost.category)
+          .neq('id', normalizedPost.id)
+          .order('created_at', { ascending: false })
+          .limit(4)
+
+        relatedData = (fallbackRelated.data ?? []).map((post) => ({
+          ...post,
+          subcategory: null,
+        }))
+        relatedError = fallbackRelated.error
+      }
+
+      if (relatedError) {
+        setRelatedPosts([])
+        setLoading(false)
+        return
+      }
+
+      setRelatedPosts(
+        (relatedData ?? []).map((post) => ({
+          ...post,
+          ...resolveCategorySelection(post.category, post.subcategory),
+        }))
+      )
       setLoading(false)
     }
 
@@ -450,7 +506,7 @@ export default function PostDetailPage() {
 
         <aside className="thsj-panel p-5 sm:p-6">
           <div className="thsj-chip inline-flex items-center px-3 py-1 text-xs font-medium">
-            {post.category}
+            {getCategoryPathLabel(post.category, post.subcategory)}
           </div>
 
           {post.condition ? (
@@ -605,7 +661,7 @@ export default function PostDetailPage() {
                 id={relatedPost.id}
                 title={relatedPost.title}
                 description={relatedPost.description}
-                category={relatedPost.category}
+                  category={getCategoryPathLabel(relatedPost.category, relatedPost.subcategory)}
                 locationDepartment={relatedPost.location_department}
                 price={relatedPost.price}
                 imageUrl={relatedPost.image_url}

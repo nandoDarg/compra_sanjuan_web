@@ -1,21 +1,3 @@
-export const OTHER_CATEGORY_VALUE = '__other__'
+import { CATEGORY_TREE } from '@/lib/hierarchical-categories'
 
-// Base inicial inspirada en categorias generales de marketplaces locales como compraensanjuan.
-export const PREDEFINED_POST_CATEGORIES = [
-  'Vehiculos',
-  'Inmuebles',
-  'Empleo',
-  'Servicios',
-  'Tecnologia',
-  'Electrodomesticos',
-  'Hogar y Muebles',
-  'Moda y Belleza',
-  'Salud y Deportes',
-  'Bebes y Ninos',
-  'Herramientas y Construccion',
-  'Agro',
-  'Mascotas',
-  'Turismo y Ocio',
-  'Educacion',
-  'Industria y Oficina',
-] as const
+export const PREDEFINED_POST_CATEGORIES = CATEGORY_TREE.map((category) => category.name)

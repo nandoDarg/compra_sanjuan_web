@@ -3,9 +3,11 @@ type SortOption = 'recent' | 'price-asc' | 'price-desc'
 type ActiveFilterChipsProps = {
   searchQuery: string
   selectedCategory: string
+  selectedSubcategory: string
   sortBy: SortOption
   onRemoveSearch: () => void
   onRemoveCategory: () => void
+  onRemoveSubcategory: () => void
   onRemoveSort: () => void
 }
 
@@ -17,16 +19,19 @@ const sortLabels: Record<Exclude<SortOption, 'recent'>, string> = {
 export default function ActiveFilterChips({
   searchQuery,
   selectedCategory,
+  selectedSubcategory,
   sortBy,
   onRemoveSearch,
   onRemoveCategory,
+  onRemoveSubcategory,
   onRemoveSort,
 }: ActiveFilterChipsProps) {
   const hasSearch = searchQuery.length > 0
   const hasCategory = selectedCategory !== 'Todas'
+  const hasSubcategory = selectedSubcategory !== 'Todas'
   const hasSort = sortBy !== 'recent'
 
-  if (!hasSearch && !hasCategory && !hasSort) {
+  if (!hasSearch && !hasCategory && !hasSubcategory && !hasSort) {
     return null
   }
 
@@ -52,6 +57,18 @@ export default function ActiveFilterChips({
         >
           <span className="text-[var(--foreground-muted)]">Categoria:</span>
           <span>{selectedCategory}</span>
+          <span className="text-[var(--foreground-muted)]">✕</span>
+        </button>
+      ) : null}
+
+      {hasSubcategory ? (
+        <button
+          type="button"
+          onClick={onRemoveSubcategory}
+          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-[var(--line-strong)]"
+        >
+          <span className="text-[var(--foreground-muted)]">Subcategoria:</span>
+          <span>{selectedSubcategory}</span>
           <span className="text-[var(--foreground-muted)]">✕</span>
         </button>
       ) : null}

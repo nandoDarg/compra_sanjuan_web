@@ -8,6 +8,7 @@ import { useAuth } from '@/components/auth-provider'
 import { createClient } from '@/lib/supabase-client'
 import { getPostImagePathFromPublicUrl } from '@/lib/post-images'
 import { isVehicleCategory, type VehicleDetailsInput } from '@/lib/vehicle-details'
+import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
 
 const MAX_IMAGE_SIZE_BYTES = Math.round(2.5 * 1024 * 1024)
 
@@ -18,6 +19,7 @@ type Post = {
   description: string
   price: number
   category: string
+  subcategory: string | null
   condition: 'new' | 'used' | null
   whatsapp_number: string | null
   location_department: string | null
@@ -30,6 +32,18 @@ type PostImage = {
 }
 
 type VehicleDetailsRow = VehicleDetailsInput
+
+function isMissingVehicleDetailsTableError(error: { code?: string; message?: string } | null | undefined) {
+  if (!error) {
+    return false
+  }
+
+  return (
+    error.code === 'PGRST205' &&
+    typeof error.message === 'string' &&
+    error.message.toLowerCase().includes('vehicle_details')
+  )
+}
 
 export default function EditPostPage() {
   const params = useParams<{ id: string }>()
@@ -53,14 +67,34 @@ export default function EditPostPage() {
       setLoading(true)
       setErrorMsg(null)
 
-      const { data, error } = await supabase
+      let { data, error } = await supabase
         .from('posts')
-        .select('id,user_id,title,description,price,category,condition,whatsapp_number,location_department,location_maps_url,image_url')
+        .select('id,user_id,title,description,price,category,subcategory,condition,whatsapp_number,location_department,location_maps_url,image_url')
         .eq('id', postId)
         .eq('user_id', user.id)
         .single()
 
+      if (error && isMissingSubcategoryColumnError(error)) {
+        const fallbackResult = await supabase
+          .from('posts')
+          .select('id,user_id,title,description,price,category,condition,whatsapp_number,location_department,location_maps_url,image_url')
+          .eq('id', postId)
+          .eq('user_id', user.id)
+          .single()
+
+        error = fallbackResult.error
+        data = fallbackResult.data
+          ? { ...fallbackResult.data, subcategory: null }
+          : null
+      }
+
       if (error) {
+        setErrorMsg('No pudimos cargar la publicacion para editar.')
+        setLoading(false)
+        return
+      }
+
+      if (!data) {
         setErrorMsg('No pudimos cargar la publicacion para editar.')
         setLoading(false)
         return
@@ -81,6 +115,7 @@ export default function EditPostPage() {
         .from('vehicle_details')
         .select('brand,model,year,mileage,fuel_type,transmission,condition,first_owner')
         .eq('post_id', data.id)
+        .limit(1)
         .maybeSingle()
 
       setExistingGalleryUrls(Array.from(new Set(mergedGallery)))
@@ -176,13 +211,14 @@ export default function EditPostPage() {
       }
     }
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from('posts')
       .update({
         title: formData.title,
         description: formData.description,
         price: formData.price,
         category: formData.category,
+        subcategory: formData.subcategory,
         whatsapp_number: formData.whatsappNumber,
         location_department: formData.locationDepartment,
         location_maps_url: formData.locationMapsUrl,
@@ -192,32 +228,81 @@ export default function EditPostPage() {
       .eq('id', post.id)
       .eq('user_id', user.id)
 
+    if (error && isMissingSubcategoryColumnError(error)) {
+      const fallbackUpdate = await supabase
+        .from('posts')
+        .update({
+          title: formData.title,
+          description: formData.description,
+          price: formData.price,
+          category: formData.category,
+          whatsapp_number: formData.whatsappNumber,
+          location_department: formData.locationDepartment,
+          location_maps_url: formData.locationMapsUrl,
+          image_url: primaryImageUrl,
+          condition: formData.condition ?? null,
+        })
+        .eq('id', post.id)
+        .eq('user_id', user.id)
+
+      error = fallbackUpdate.error
+    }
+
     if (error) {
       return { error: error.message }
     }
 
-    if (isVehicleCategory(formData.category) && formData.vehicleDetails) {
-      const { error: vehicleDetailsError } = await supabase.from('vehicle_details').upsert(
-        {
-          post_id: post.id,
-          brand: formData.vehicleDetails.brand,
-          model: formData.vehicleDetails.model,
-          year: formData.vehicleDetails.year,
-          mileage: formData.vehicleDetails.mileage,
-          fuel_type: formData.vehicleDetails.fuel_type,
-          transmission: formData.vehicleDetails.transmission,
-          condition: formData.vehicleDetails.condition,
-          first_owner: formData.vehicleDetails.first_owner,
-        },
-        {
-          onConflict: 'post_id',
-        }
-      )
+    if (isVehicleCategory(formData.category)) {
+      if (!formData.vehicleDetails) {
+        return { error: 'Completa la informacion del vehiculo antes de guardar.' }
+      }
 
-      if (vehicleDetailsError) {
+      const vehiclePayload = {
+        brand: formData.vehicleDetails.brand,
+        model: formData.vehicleDetails.model,
+        year: formData.vehicleDetails.year,
+        mileage: formData.vehicleDetails.mileage,
+        fuel_type: formData.vehicleDetails.fuel_type,
+        transmission: formData.vehicleDetails.transmission,
+        condition: formData.vehicleDetails.condition,
+        first_owner: formData.vehicleDetails.first_owner,
+      }
+
+      const { data: updatedRows, error: vehicleDetailsUpdateError } = await supabase
+        .from('vehicle_details')
+        .update(vehiclePayload)
+        .eq('post_id', post.id)
+        .select('id')
+        .limit(1)
+
+      if (vehicleDetailsUpdateError) {
+        if (isMissingVehicleDetailsTableError(vehicleDetailsUpdateError)) {
+          return {
+            error:
+              'Falta la tabla vehicle_details en Supabase. Ejecuta la migracion SQL de vehicle_details y vuelve a intentar.',
+          }
+        }
+
         return { error: 'No se pudo actualizar la informacion del vehiculo.' }
       }
-    } else if (vehicleDetails || isVehicleCategory(post.category)) {
+
+      if (!updatedRows || updatedRows.length === 0) {
+        const { error: vehicleDetailsInsertError } = await supabase
+          .from('vehicle_details')
+          .insert({ post_id: post.id, ...vehiclePayload })
+
+        if (vehicleDetailsInsertError) {
+          if (isMissingVehicleDetailsTableError(vehicleDetailsInsertError)) {
+            return {
+              error:
+                'Falta la tabla vehicle_details en Supabase. Ejecuta la migracion SQL de vehicle_details y vuelve a intentar.',
+            }
+          }
+
+          return { error: 'No se pudo guardar la informacion del vehiculo.' }
+        }
+      }
+    } else if (isVehicleCategory(post.category)) {
       const { error: vehicleDetailsDeleteError } = await supabase
         .from('vehicle_details')
         .delete()
@@ -278,6 +363,7 @@ export default function EditPostPage() {
         description: post.description,
         price: Number(post.price),
         category: post.category,
+        subcategory: post.subcategory,
         whatsappNumber: post.whatsapp_number,
         locationDepartment: post.location_department,
         locationMapsUrl: post.location_maps_url,

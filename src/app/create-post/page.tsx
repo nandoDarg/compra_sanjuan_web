@@ -5,8 +5,21 @@ import { createClient } from '@/lib/supabase-client'
 import PostForm, { type PostFormSubmitData } from '@/components/post-form'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
 import { isVehicleCategory } from '@/lib/vehicle-details'
+import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
 
 const MAX_IMAGE_SIZE_BYTES = Math.round(2.5 * 1024 * 1024)
+
+function isMissingVehicleDetailsTableError(error: { code?: string; message?: string } | null | undefined) {
+  if (!error) {
+    return false
+  }
+
+  return (
+    error.code === 'PGRST205' &&
+    typeof error.message === 'string' &&
+    error.message.toLowerCase().includes('vehicle_details')
+  )
+}
 
 function logPublishError(step: string, error: unknown, context?: Record<string, unknown>) {
   console.error(error)
@@ -130,7 +143,7 @@ export default function CreatePostPage() {
     let insertError: { message: string } | null = null
 
     try {
-      const insertResponse = await supabase
+      let insertResponse = await supabase
         .from('posts')
         .insert({
           user_id: user.id,
@@ -138,6 +151,7 @@ export default function CreatePostPage() {
           description: formData.description,
           price: formData.price,
           category: formData.category,
+          subcategory: formData.subcategory,
           whatsapp_number: formData.whatsappNumber,
           location_department: formData.locationDepartment,
           location_maps_url: formData.locationMapsUrl,
@@ -146,6 +160,25 @@ export default function CreatePostPage() {
         })
         .select('id')
         .single()
+
+      if (insertResponse.error && isMissingSubcategoryColumnError(insertResponse.error)) {
+        insertResponse = await supabase
+          .from('posts')
+          .insert({
+            user_id: user.id,
+            title: formData.title,
+            description: formData.description,
+            price: formData.price,
+            category: formData.category,
+            whatsapp_number: formData.whatsappNumber,
+            location_department: formData.locationDepartment,
+            location_maps_url: formData.locationMapsUrl,
+            image_url: primaryImage.publicUrl,
+            condition: formData.condition ?? null,
+          })
+          .select('id')
+          .single()
+      }
 
       insertedPost = insertResponse.data as { id: string } | null
       insertError = insertResponse.error
@@ -207,6 +240,21 @@ export default function CreatePostPage() {
       })
 
       if (vehicleDetailsError) {
+        if (isMissingVehicleDetailsTableError(vehicleDetailsError)) {
+          await supabase
+            .from('posts')
+            .delete()
+            .eq('id', insertedPost.id)
+            .eq('user_id', user.id)
+
+          await rollbackUploadedImages()
+
+          return {
+            error:
+              'Falta la tabla vehicle_details en Supabase. Ejecuta la migracion SQL de vehicle_details y vuelve a intentar.',
+          }
+        }
+
         logPublishError('insert-vehicle-details-failed', vehicleDetailsError, {
           postId: insertedPost.id,
           category: formData.category,
