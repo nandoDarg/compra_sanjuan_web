@@ -1,3 +1,5 @@
+import { useEffect, useState } from 'react'
+
 type CategoryStat = {
   name: string
   postCount: number
@@ -22,6 +24,19 @@ export default function CategorySidebar({
   onSelectCategory,
   onSelectSubcategory,
 }: CategorySidebarProps) {
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (selectedCategory === 'Todas') {
+      setExpandedCategory(null)
+      return
+    }
+
+    if (selectedSubcategory !== 'Todas') {
+      setExpandedCategory(selectedCategory)
+    }
+  }, [selectedCategory, selectedSubcategory])
+
   return (
     <aside className="thsj-panel hidden lg:block lg:sticky lg:top-24 lg:max-h-[calc(100vh-7rem)] lg:overflow-y-auto">
       <div className="border-b border-(--line) p-4 pb-3">
@@ -33,13 +48,23 @@ export default function CategorySidebar({
       <div className="space-y-1 p-2">
         {categories.map((category) => {
           const isCategoryActive = selectedCategory === category.name
-          const isExpanded = isCategoryActive || selectedCategory === 'Todas'
+          const isExpanded = expandedCategory === category.name
 
           return (
             <div key={category.name} className="rounded-xl border border-transparent">
               <button
                 type="button"
-                onClick={() => onSelectCategory(category.name)}
+                onClick={() => {
+                  if (selectedCategory === category.name && expandedCategory === category.name) {
+                    setExpandedCategory(null)
+                    return
+                  }
+
+                  setExpandedCategory((current) =>
+                    current === category.name ? null : category.name
+                  )
+                  onSelectCategory(category.name)
+                }}
                 aria-current={isCategoryActive ? 'true' : undefined}
                 className={[
                   'flex w-full items-center justify-between rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition',
