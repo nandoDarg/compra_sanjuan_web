@@ -16,6 +16,7 @@ import {
   resolveCategorySelection,
 } from '@/lib/hierarchical-categories'
 import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
+import { expandSearchQuery, buildSupabaseOrFilter } from '@/lib/search/expand-query'
 
 type Post = {
   id: string
@@ -471,10 +472,8 @@ function HomeContent() {
         .select(POSTS_SELECT_WITH_SUBCATEGORY)
 
       if (searchQuery) {
-        const pattern = `%${searchQuery}%`
-        query = query.or(
-          `title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern},subcategory.ilike.${pattern}`
-        )
+        const expandedTerms = expandSearchQuery(searchQuery)
+        query = query.or(buildSupabaseOrFilter(expandedTerms, true))
       }
 
       if (sortBy === 'price-asc') {
@@ -497,10 +496,8 @@ function HomeContent() {
           .select(POSTS_SELECT_LEGACY)
 
         if (searchQuery) {
-          const pattern = `%${searchQuery}%`
-          legacyQuery = legacyQuery.or(
-            `title.ilike.${pattern},description.ilike.${pattern},category.ilike.${pattern}`
-          )
+          const expandedTerms = expandSearchQuery(searchQuery)
+          legacyQuery = legacyQuery.or(buildSupabaseOrFilter(expandedTerms, false))
         }
 
         if (sortBy === 'price-asc') {
@@ -694,10 +691,7 @@ function HomeContent() {
     [categoryStats]
   )
 
-  const mobileCategories = useMemo(
-    () => ['Todas', ...CATEGORY_TREE.map((category) => category.name)],
-    []
-  )
+  const mobileCategories = categoryStats
 
   const desktopCategories = categoryStats
 
@@ -756,7 +750,9 @@ function HomeContent() {
           <CategoryFilter
             categories={mobileCategories}
             selectedCategory={selectedCategory}
-            onChange={handleCategoryChange}
+            selectedSubcategory={selectedSubcategory}
+            onChangeCategory={handleCategoryChange}
+            onChangeSubcategory={handleSubcategoryChange}
             className="lg:hidden"
           />
 
