@@ -9,11 +9,13 @@ Ultima actualizacion: Junio 2026.
 - Exploracion publica habilitada para marketplace (`/` y `/post/[id]`).
 - Gestion de publicaciones autenticada (`/create-post`, `/my-posts`, `/my-posts/[id]/edit`).
 - Contacto vendedor por WhatsApp implementado.
-- Busqueda sin resultado vacio + sugerencias personalizadas locales.
+- Busqueda semantica/fuzzy activa (normalizacion + sinonimos + Levenshtein <= 2).
 - Multi-imagen completo (crear/editar/detalle) con limites y compresion.
 - Flujo de importacion por URL publica/Google Drive habilitado.
 - Modulo de vehiculos en produccion de codigo (ficha tecnica + render en detalle).
 - Instrumentacion de analytics con PostHog activa.
+- Taxonomia jerarquica implementada en frontend (categoria principal + subcategoria).
+- Filtros jerarquicos desplegables en feed (mobile y desktop), con toggle abrir/cerrar.
 
 ## Fase actual - Validacion real de mercado
 
@@ -33,7 +35,7 @@ Objetivo: conseguir uso real y aprender del comportamiento de usuarios.
 
 - Favoritos.
 - Notificaciones simples.
-- Mejora de taxonomia de categorias (aprovechando normalizacion ya implementada).
+- Afinar taxonomia de categorias segun datos reales de busqueda/publicacion.
 - Moderacion basica/reportes.
 - SEO basico.
 
@@ -58,11 +60,13 @@ Estado:
 ## Pendientes tecnicos inmediatos
 
 1. Ejecutar/validar SQL completo de `docs/database.md` en Supabase (si falta `vehicle_details` o politicas nuevas).
+2. Ejecutar `docs/sql/20260609_posts_subcategory.sql` en cualquier entorno que aun no tenga `posts.subcategory`.
 2. Correr prueba E2E manual de flujo vehiculo:
 	- crear
 	- editar (incluyendo quitar imagenes existentes)
 	- visualizar detalle con ficha tecnica
 3. Verificar eventos de PostHog en ambiente de produccion.
+4. Medir precision de busqueda fuzzy/semantica y ajustar sinonimos en `src/lib/search/synonym-map.ts`.
 
 ## Primera lista de tareas para proxima sesion
 

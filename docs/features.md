@@ -7,7 +7,9 @@ Ultima actualizacion: Junio 2026.
 - Feed de publicaciones publico (`/`).
 - Vista detalle publica (`/post/[id]`).
 - Busqueda por texto con fallback para evitar resultado vacio.
+- Busqueda fuzzy + expansion semantica de sinonimos (cliente/API layer antes de query Supabase).
 - Filtros por categoria y orden.
+- Filtros jerarquicos por categoria principal y subcategoria (mobile y desktop).
 - Related posts por categoria en detalle.
 - Sugerencias y ranking local por historial/interacciones en busqueda.
 
@@ -47,13 +49,23 @@ Ultima actualizacion: Junio 2026.
 	- primer duenio
 - Render de ficha tecnica en detalle publico de publicacion.
 - Persistencia en tabla relacional `vehicle_details` (1 a 1 con `posts`).
+- Mensaje de error explicito cuando falta la tabla `vehicle_details` en Supabase.
 
 ## Datos y normalizacion
 
 - Tabla principal: `posts`.
 - Tabla de galeria: `post_images`.
 - Tabla de vehiculos: `vehicle_details`.
-- Normalizacion de variantes de categoria en frontend para consolidar taxonomia.
+- Columna adicional: `posts.subcategory` (migracion SQL dedicada).
+- Taxonomia jerarquica local (arbol) y normalizacion de categorias legacy a `categoria > subcategoria`.
+- Compatibilidad hacia atras cuando `subcategory` aun no existe en BD.
+
+## Taxonomia jerarquica
+
+- Categoria principal visible en sidebar.
+- Subcategorias desplegables por categoria (toggle abrir/cerrar con segundo click).
+- Formulario create/edit con seleccion obligatoria de categoria principal y subcategoria.
+- Feed y detalle muestran ruta `Categoria > Subcategoria` cuando existe.
 
 ## Contacto y conversion
 

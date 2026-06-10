@@ -17,7 +17,12 @@ Marketplace web construido con Next.js + Supabase.
 	- editar
 	- eliminar (con confirmacion)
 - Busqueda inteligente sin estado vacio (fallback por similitud + historial/interacciones locales).
+- Busqueda mejorada con expansion semantica y fuzzy matching (sin cambios de BD):
+	- normalizacion de texto (minusculas, sin tildes, sin palabras vacias)
+	- matching por distancia de Levenshtein (max 2)
+	- expansion por mapa de sinonimos en `src/lib/search/synonym-map.ts`
 - Analytics de producto integrado con PostHog (registro, login, crear publicacion, ver detalle, compartir, WhatsApp, busqueda y categoria).
+- Taxonomia jerarquica de categorias (categoria principal + subcategoria) en feed, filtros y formulario.
 - Flujo multimedia actualizado:
 	- hasta 10 imagenes por publicacion
 	- compresion cliente para limitar cada imagen a 2.5 MB maximo
@@ -75,6 +80,8 @@ npm run build
 5. Si es la primera vez con este proyecto, ejecutar SQL de Supabase:
 
 - `docs/database.md` (incluye `posts`, `post_images`, `vehicle_details`, RLS y storage).
+- Si el entorno es previo a taxonomia jerarquica, ejecutar tambien:
+	- `docs/sql/20260609_posts_subcategory.sql`
 
 ## Rutas principales
 

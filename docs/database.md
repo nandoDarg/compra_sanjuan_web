@@ -76,8 +76,12 @@ add column if not exists location_department text;
 alter table public.posts
 add column if not exists location_maps_url text;
 
+alter table public.posts
+add column if not exists subcategory text;
+
 create index if not exists posts_created_at_idx on public.posts (created_at desc);
 create index if not exists posts_user_id_idx on public.posts (user_id);
+create index if not exists posts_category_subcategory_idx on public.posts (category, subcategory);
 create index if not exists post_images_post_id_idx on public.post_images (post_id, position);
 create index if not exists vehicle_details_post_id_idx on public.vehicle_details (post_id);
 
@@ -310,7 +314,19 @@ alter table public.posts
 add column if not exists location_maps_url text;
 ```
 
-## 6) SQL de correccion para feed publico (sin login)
+## 6) SQL de migracion para categorias jerarquicas
+
+Para habilitar `subcategory` y migrar publicaciones existentes de categoria plana a `categoria > subcategoria`, ejecutar:
+
+- `docs/sql/20260609_posts_subcategory.sql`
+
+Notas:
+
+- No requiere cambios en funciones Supabase ni paquetes externos.
+- Mantiene compatibilidad con publicaciones existentes.
+- Crea indice compuesto `posts_category_subcategory_idx` para filtros.
+
+## 7) SQL de correccion para feed publico (sin login)
 
 Si los usuarios anonimos no ven publicaciones en `/`, ejecuta:
 

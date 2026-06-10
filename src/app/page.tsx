@@ -696,10 +696,8 @@ function HomeContent() {
   const desktopCategories = categoryStats
 
   const clearFilters = () => {
-    updateSearchQuery('')
-    updateCategoryFilters('Todas')
     setSortBy('recent')
-    updateCondition(null)
+    router.replace(pathname)
   }
 
   return (
