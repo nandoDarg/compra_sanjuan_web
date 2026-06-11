@@ -13,7 +13,7 @@ export default function Navbar() {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
-  const isAuthRoute = pathname === '/login' || pathname === '/register'
+  const isAuthRoute = pathname === '/login' || pathname === '/register' || pathname === '/reset-password'
   const isFeedRoute = pathname === '/'
   const queryFromUrl = searchParams.get('q') ?? ''
   const searchDebounceRef = useRef<number | null>(null)
@@ -63,7 +63,7 @@ export default function Navbar() {
           <img
             src="/logo-navbar.svg"
             alt="tratohechoSJ"
-            className="h-10 w-auto min-w-[190px] max-w-[280px] transition group-hover:opacity-95 sm:h-11"
+            className="h-10 w-auto min-w-47.5 max-w-70 transition group-hover:opacity-95 sm:h-11"
           />
         </Link>
 

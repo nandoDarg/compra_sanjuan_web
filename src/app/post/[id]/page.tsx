@@ -320,7 +320,7 @@ export default function PostDetailPage() {
     const formattedPrice = new Intl.NumberFormat('es-AR', {
       style: 'currency',
       currency: 'ARS',
-      maximumFractionDigits: 2,
+      maximumFractionDigits: 0,
     }).format(post.price)
 
     const message = encodeURIComponent(
@@ -527,7 +527,11 @@ export default function PostDetailPage() {
           </h1>
 
           <p className="mt-4 text-3xl font-extrabold tracking-tight text-(--brand-primary) sm:text-4xl">
-            ${Number(post.price).toFixed(2)}
+            {new Intl.NumberFormat('es-AR', {
+              style: 'currency',
+              currency: 'ARS',
+              maximumFractionDigits: 0,
+            }).format(post.price)}
           </p>
 
           {vehicleDetails ? (

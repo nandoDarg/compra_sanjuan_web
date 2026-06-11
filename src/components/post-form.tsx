@@ -393,7 +393,7 @@ export default function PostForm({
     return {
       title: initialValues.title,
       description: initialValues.description,
-      price: String(initialValues.price),
+      price: String(Math.round(initialValues.price)),
       whatsappNumber: initialValues.whatsappNumber ?? '',
       locationDepartment: initialValues.locationDepartment ?? '',
       locationMapsUrl: initialValues.locationMapsUrl ?? '',
@@ -787,8 +787,8 @@ export default function PostForm({
 
     const parsedPrice = Number(form.price)
 
-    if (Number.isNaN(parsedPrice) || parsedPrice < 0) {
-      setErrorMsg('Ingresa un precio valido.')
+    if (Number.isNaN(parsedPrice) || parsedPrice < 0 || !Number.isInteger(parsedPrice)) {
+      setErrorMsg('Ingresa un precio entero valido.')
       return
     }
 
@@ -1004,12 +1004,13 @@ export default function PostForm({
               className="thsj-input px-3 py-2.5"
               type="number"
               min="0"
-              step="0.01"
+              step="1"
+              inputMode="numeric"
               value={form.price}
               onChange={(event) =>
                 setForm((previous) => ({ ...previous, price: event.target.value }))
               }
-              placeholder="0.00"
+              placeholder="0"
               required
             />
           </label>

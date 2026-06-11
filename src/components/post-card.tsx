@@ -25,6 +25,12 @@ export default function PostCard({
   actions,
   onOpen,
 }: PostCardProps) {
+  const formattedPrice = new Intl.NumberFormat('es-AR', {
+    style: 'currency',
+    currency: 'ARS',
+    maximumFractionDigits: 0,
+  }).format(Number(price))
+
   const cardContent = (
     <>
       {imageUrl ? (
@@ -44,7 +50,7 @@ export default function PostCard({
 
       <div className="flex flex-1 flex-col gap-2 p-3 sm:p-4">
         <div className="font-[var(--font-space-grotesk)] text-base font-semibold tracking-tight text-[var(--brand-primary)]">
-          ${Number(price).toFixed(2)}
+          {formattedPrice}
         </div>
 
         <h2 className="min-h-[1.75rem] line-clamp-2 !text-[14px] font-medium leading-[1.15rem] text-[var(--foreground)] sm:min-h-[1.9rem] sm:!text-[14px]">

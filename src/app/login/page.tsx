@@ -178,6 +178,13 @@ export default function LoginPage() {
             {loading ? 'Ingresando...' : 'Login'}
           </button>
 
+          <Link
+            href="/reset-password"
+            className="text-center text-sm font-semibold text-(--brand-secondary) hover:underline"
+          >
+            Olvidaste tu contraseña?
+          </Link>
+
           <p className="text-center text-sm text-(--foreground-muted)">
             No tenes cuenta?{' '}
             <Link href="/register" className="font-semibold text-(--brand-secondary) hover:underline">

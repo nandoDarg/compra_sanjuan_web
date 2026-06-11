@@ -16,6 +16,9 @@ Proyecto: compra_sanjuan_web (tratohechoSJ)
 - react-easy-crop para recorte de imagenes
 
 3) Cambios recientes ya aplicados y pusheados
+- Commit actual de continuidad:
+  - recuperacion de contraseña con `/reset-password`
+  - acceso rapido desde login para restablecer contraseña
 - Commit f42ab2d:
   - fix: clear filters with single navigation + docs update
   - main quedo sincronizado con origin/main despues del push
@@ -30,6 +33,10 @@ Proyecto: compra_sanjuan_web (tratohechoSJ)
   - migracion SQL de profiles/display_name
 
 4) Archivos clave que ya quedaron
+- Recuperacion de contraseña:
+  - src/app/reset-password/page.tsx
+  - src/app/login/page.tsx
+  - src/components/navbar.tsx
 - Comandos manuales Git/GitHub:
   - COMANDOS_REPOSITORIO_GITHUB.txt
 - SQL migracion perfiles:
@@ -82,6 +89,7 @@ Proyecto: compra_sanjuan_web (tratohechoSJ)
 - Probar registro nuevo (con y sin confirmacion email) y validar display_name final.
 - Revisar si se quiere una pantalla de edicion de perfil (ya preparada a nivel DB/policies).
 - Evaluar reemplazo progresivo de img por next/image donde no afecte UX de zoom.
+- Probar el flujo de recuperacion de contraseña con un correo real y revisar el redirect de Supabase.
 - Usar COMANDOS_REPOSITORIO_GITHUB.txt como guia rapida para operaciones manuales de Git/GitHub.
 
 11) Convenciones del proyecto

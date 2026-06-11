@@ -5,6 +5,8 @@ Proyecto: compra_sanjuan_web (tratohechoSJ)
 
 ## Resumen de la sesion
 
+- Se agrego recuperacion de contraseña con nueva ruta `/reset-password`.
+- Login ahora incluye acceso rapido a la recuperacion de contraseña.
 - Se creo `COMANDOS_REPOSITORIO_GITHUB.txt` en la raiz con comandos manuales de Git/GitHub.
 - Se confirmo que `main` quedo sincronizado con `origin/main` luego del push del commit `f42ab2d`.
 - Se hicieron ajustes visuales iterativos en titulos y UI de filtros.
@@ -71,5 +73,6 @@ Proyecto: compra_sanjuan_web (tratohechoSJ)
    - crear publicacion con subcategoria
    - filtrar por subcategoria en feed
    - editar y persistir ficha tecnica vehicular
-3. Ajustar sinonimos en `src/lib/search/synonym-map.ts` segun consultas reales.
-4. Si se necesitan comandos manuales de git/github, usar `COMANDOS_REPOSITORIO_GITHUB.txt` como referencia rapida.
+3. Probar el flujo completo de recuperacion de contraseña con correo real de Supabase.
+4. Ajustar sinonimos en `src/lib/search/synonym-map.ts` segun consultas reales.
+5. Si se necesitan comandos manuales de git/github, usar `COMANDOS_REPOSITORIO_GITHUB.txt` como referencia rapida.
