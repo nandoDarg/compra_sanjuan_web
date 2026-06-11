@@ -1,10 +1,12 @@
 # Contexto de continuidad IA
 
-Ultima actualizacion: 2026-06-09
+Ultima actualizacion: 2026-06-11
 Proyecto: compra_sanjuan_web (tratohechoSJ)
 
 ## Resumen de la sesion
 
+- Se creo `COMANDOS_REPOSITORIO_GITHUB.txt` en la raiz con comandos manuales de Git/GitHub.
+- Se confirmo que `main` quedo sincronizado con `origin/main` luego del push del commit `f42ab2d`.
 - Se hicieron ajustes visuales iterativos en titulos y UI de filtros.
 - Se mejoro el mensaje de WhatsApp en detalle de publicacion.
 - Se agrego campo opcional `condition` en flujo create/edit/feed/detail.
@@ -57,6 +59,7 @@ Proyecto: compra_sanjuan_web (tratohechoSJ)
 
 ## Commits publicados durante la continuidad reciente
 
+- `f42ab2d` - Fix clear filters with single navigation + docs update
 - `356bb5d` - Add hierarchical categories and compatibility fallbacks
 - `7dec0cc` - Search fuzzy + semantic expansion
 - `b4ff561` - Toggle collapse for expanded category filters
@@ -69,3 +72,4 @@ Proyecto: compra_sanjuan_web (tratohechoSJ)
    - filtrar por subcategoria en feed
    - editar y persistir ficha tecnica vehicular
 3. Ajustar sinonimos en `src/lib/search/synonym-map.ts` segun consultas reales.
+4. Si se necesitan comandos manuales de git/github, usar `COMANDOS_REPOSITORIO_GITHUB.txt` como referencia rapida.

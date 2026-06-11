@@ -1,0 +1,154 @@
+COMANDOS DE REPOSITORIO GIT/GITHUB
+
+Repositorio: compra_sanjuan_web
+Uso: comandos manuales para revisar, sincronizar y administrar cambios
+
+1) Estado y diagnostico
+
+git status
+git status --short
+git status --branch
+git remote -v
+git branch
+git branch -a
+git log --oneline
+git log --oneline --decorate --graph --all
+git diff
+git diff --staged
+git diff --name-only
+git show HEAD
+
+2) Obtener cambios del remoto
+
+git fetch
+git fetch origin
+git fetch --all --prune
+git pull
+git pull origin main
+git pull --rebase
+git pull --rebase origin main
+
+3) Enviar cambios al remoto
+
+git add .
+git add <archivo>
+git add -A
+git commit -m "mensaje del commit"
+git push
+git push origin main
+git push origin <rama>
+git push --set-upstream origin <rama>
+
+4) Ramas
+
+git branch
+git branch <nueva-rama>
+git checkout <rama>
+git checkout -b <nueva-rama>
+git switch <rama>
+git switch -c <nueva-rama>
+git branch -d <rama>
+git branch -D <rama>
+
+5) Fusion y rebase
+
+git merge <rama>
+git rebase <rama>
+git rebase --continue
+git rebase --abort
+
+6) Deshacer cambios
+
+git restore <archivo>
+git restore --staged <archivo>
+git restore .
+git reset <archivo>
+git reset HEAD <archivo>
+git reset --soft HEAD~1
+git reset --mixed HEAD~1
+git reset --hard HEAD~1
+git revert <hash-del-commit>
+
+7) Stash temporal
+
+git stash
+git stash push -m "descripcion"
+git stash list
+git stash show
+git stash show -p
+git stash pop
+git stash apply
+git stash drop
+git stash clear
+
+8) Revisar historial y cambios
+
+git log
+git log --oneline --decorate
+git log --stat
+git log -p
+git blame <archivo>
+git show <hash>
+git show <hash>:<archivo>
+
+9) Archivos y limpieza
+
+git clean -n
+git clean -f
+git clean -fd
+git rm <archivo>
+git mv <origen> <destino>
+
+10) Remotos
+
+git remote add origin <url>
+git remote set-url origin <url>
+git remote rename <viejo> <nuevo>
+git remote remove <nombre>
+git remote show origin
+
+11) Etiquetas
+
+git tag
+git tag <v1.0.0>
+git tag -a <v1.0.0> -m "mensaje"
+git push origin <v1.0.0>
+git push origin --tags
+
+12) Conflictos comunes
+
+git status
+git diff
+git add <archivo>
+git commit
+git merge --abort
+git rebase --abort
+
+13) GitHub CLI, si esta instalado
+
+gh auth login
+gh auth status
+gh repo view
+gh repo clone <owner>/<repo>
+gh issue list
+gh issue create
+gh pr status
+gh pr list
+gh pr create
+gh pr checkout <numero>
+gh pr merge <numero>
+
+14) Flujo rapido recomendado
+
+git status
+git pull --rebase origin main
+git add .
+git commit -m "mensaje"
+git push origin main
+
+15) Notas utiles
+
+- Reemplaza <archivo>, <rama>, <url>, <hash-del-commit> y <numero> por valores reales.
+- Si solo quieres ver cambios antes de tocar nada, usa git status y git diff.
+- Si hay un commit local listo y quieres publicarlo, usa git push origin main.
+- Si el remoto avanzo, usa git pull --rebase origin main antes de volver a pushear.
