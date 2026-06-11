@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from './auth-provider'
 import Navbar from './navbar'
 
-const PUBLIC_ROUTES = ['/', '/login', '/register']
+const PUBLIC_ROUTES = ['/', '/login', '/register', '/reset-password']
 
 function isPublicPath(pathname: string) {
   if (PUBLIC_ROUTES.includes(pathname)) {
@@ -41,8 +41,8 @@ export default function AppShell({
         </Suspense>
         <main className="mx-auto flex w-full max-w-7xl flex-1 items-center justify-center px-4 py-8 sm:px-6 lg:px-8">
           <div className="thsj-panel px-6 py-10 text-center">
-            <div className="mx-auto mb-3 h-10 w-10 animate-pulse rounded-full bg-[var(--background-muted)]" />
-            <p className="text-sm text-[var(--foreground-muted)]">Cargando sesion...</p>
+            <div className="mx-auto mb-3 h-10 w-10 animate-pulse rounded-full bg-(--background-muted)" />
+            <p className="text-sm text-(--foreground-muted)">Cargando sesion...</p>
           </div>
         </main>
       </>
