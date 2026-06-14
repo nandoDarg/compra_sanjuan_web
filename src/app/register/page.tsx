@@ -20,6 +20,8 @@ export default function RegisterPage() {
 
   const normalizeEmail = (value: string) => value.trim().toLowerCase()
   const normalizeDisplayName = (value: string) => value.trim()
+  const getAuthCallbackRedirect = () =>
+    `${window.location.origin}/auth/callback?next=${encodeURIComponent('/')}`
 
   const handleRegister = async () => {
     setError('')
@@ -53,7 +55,7 @@ export default function RegisterPage() {
         data: {
           display_name: normalizedDisplayName,
         },
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: getAuthCallbackRedirect(),
       },
     })
 

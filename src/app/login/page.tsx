@@ -1,11 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
-import { mapSupabaseAuthErrorMessage } from '@/lib/auth-errors'
+import {
+  isConfirmationPendingAuthError,
+  mapSupabaseAuthErrorMessage,
+} from '@/lib/auth-errors'
 
 export default function LoginPage() {
   const supabase = createClient()
@@ -20,12 +23,20 @@ export default function LoginPage() {
   const [showResend, setShowResend] = useState(false)
   const [resending, setResending] = useState(false)
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+
+    if (params.get('account_deleted') === '1') {
+      setInfo('Cuenta eliminada correctamente.')
+    }
+  }, [])
+
   const normalizeEmail = (value: string) => value.trim().toLowerCase()
+  const getAuthCallbackRedirect = () =>
+    `${window.location.origin}/auth/callback?next=${encodeURIComponent('/')}`
 
   const mapAuthErrorMessage = (rawMessage: string) => {
-    const normalized = rawMessage.toLowerCase()
-
-    if (normalized.includes('email not confirmed')) {
+    if (isConfirmationPendingAuthError(rawMessage)) {
       setShowResend(true)
       return mapSupabaseAuthErrorMessage(rawMessage)
     }
@@ -50,7 +61,7 @@ export default function LoginPage() {
       type: 'signup',
       email: normalizedEmail,
       options: {
-        emailRedirectTo: `${window.location.origin}/login`,
+        emailRedirectTo: getAuthCallbackRedirect(),
       },
     })
 
