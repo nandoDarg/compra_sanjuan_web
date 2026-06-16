@@ -10,13 +10,29 @@ function buildRedirectUrl(request: NextRequest, nextPath: string | null) {
   return new URL(safeNextPath, request.url)
 }
 
+function resolveNextPath(nextPath: string | null, authType: string | null) {
+  if (nextPath && nextPath.startsWith('/')) {
+    return nextPath
+  }
+
+  if (authType === 'recovery') {
+    return '/reset-password'
+  }
+
+  return '/'
+}
+
 export async function GET(request: NextRequest) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
   const nextPath = requestUrl.searchParams.get('next')
+  const authType = requestUrl.searchParams.get('type')
+  const resolvedNextPath = resolveNextPath(nextPath, authType)
 
   if (!code) {
-    return NextResponse.redirect(new URL('/login?auth_error=missing_code', request.url))
+    const redirectUrl = new URL(resolvedNextPath, request.url)
+    redirectUrl.searchParams.set('auth_error', 'missing_code')
+    return NextResponse.redirect(redirectUrl)
   }
 
   const cookieStore = await cookies()
@@ -36,10 +52,10 @@ export async function GET(request: NextRequest) {
   const { error } = await supabase.auth.exchangeCodeForSession(code)
 
   if (error) {
-    const redirectUrl = new URL('/login', request.url)
+    const redirectUrl = new URL(resolvedNextPath, request.url)
     redirectUrl.searchParams.set('auth_error', error.message)
     return NextResponse.redirect(redirectUrl)
   }
 
-  return NextResponse.redirect(buildRedirectUrl(request, nextPath))
+  return NextResponse.redirect(buildRedirectUrl(request, resolvedNextPath))
 }

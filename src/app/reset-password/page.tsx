@@ -2,16 +2,18 @@
 
 import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { mapSupabaseAuthErrorMessage } from '@/lib/auth-errors'
 
 export default function ResetPasswordPage() {
   const supabase = useState(() => createClient())[0]
   const router = useRouter()
+  const searchParams = useSearchParams()
 
   const [checkingSession, setCheckingSession] = useState(true)
   const [hasRecoverySession, setHasRecoverySession] = useState(false)
+  const [hasValidToken, setHasValidToken] = useState(false)
   const [email, setEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -20,11 +22,23 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('')
 
   const normalizeEmail = (value: string) => value.trim().toLowerCase()
+  const getRecoveryRedirect = () =>
+    `${window.location.origin}/auth/callback?next=${encodeURIComponent('/reset-password')}`
 
   useEffect(() => {
     let active = true
 
     const syncSession = async () => {
+      // Capturar token y type de los searchParams
+      const tokenFromUrl = searchParams.get('token')
+      const typeFromUrl = searchParams.get('type')
+
+      // Validar que sea un recovery token
+      const isValidRecoveryUrl = tokenFromUrl && typeFromUrl === 'recovery'
+      if (isValidRecoveryUrl) {
+        setHasValidToken(true)
+      }
+
       const { data } = await supabase.auth.getSession()
 
       if (!active) {
@@ -48,7 +62,17 @@ export default function ResetPasswordPage() {
       active = false
       subscription.unsubscribe()
     }
-  }, [supabase])
+  }, [supabase, searchParams])
+
+  useEffect(() => {
+    const authError = searchParams.get('auth_error')
+
+    if (!authError) {
+      return
+    }
+
+    setError(mapSupabaseAuthErrorMessage(authError))
+  }, [searchParams])
 
   const handleSendResetEmail = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
@@ -65,7 +89,7 @@ export default function ResetPasswordPage() {
     setLoading(true)
 
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
-      redirectTo: `${window.location.origin}/reset-password`,
+      redirectTo: getRecoveryRedirect(),
     })
 
     setLoading(false)
@@ -75,7 +99,7 @@ export default function ResetPasswordPage() {
       return
     }
 
-    setInfo('Te enviamos un enlace para recuperar tu contraseña. Revisá tu correo y spam.')
+    setInfo('Te enviamos un enlace a tu correo. Haz clic en el enlace para continuar (revisa también spam).')
   }
 
   const handleUpdatePassword = async (event: FormEvent<HTMLFormElement>) => {
@@ -119,7 +143,7 @@ export default function ResetPasswordPage() {
     router.push('/login')
   }
 
-  const isRecoveringPassword = !checkingSession && hasRecoverySession
+  const isRecoveringPassword = !checkingSession && (hasRecoverySession || hasValidToken)
 
   return (
     <div className="flex min-h-[calc(100vh-73px)] items-center justify-center px-4 py-8 sm:px-6">
@@ -131,9 +155,11 @@ export default function ResetPasswordPage() {
           {isRecoveringPassword ? 'Crear nueva contraseña' : 'Recuperar contraseña'}
         </h1>
         <p className="mt-2 text-sm">
-          {isRecoveringPassword
-            ? 'Elegí una nueva contraseña para tu cuenta.'
-            : 'Escribí tu email y te enviaremos un enlace para restablecerla.'}
+          {checkingSession
+            ? 'Verificando tu enlace...'
+            : isRecoveringPassword
+              ? 'Elegí una nueva contraseña segura para tu cuenta.'
+              : 'Escribí tu email registrado y te enviaremos un enlace para restablecerla.'}
         </p>
 
         {checkingSession ? (
