@@ -35,6 +35,11 @@ export async function GET(request: NextRequest) {
 
   const cookieStore = await cookies()
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    // Force implicit flow so verifyOtp works with token_hash without needing
+    // a PKCE code verifier (which is not available server-side after email click)
+    auth: {
+      flowType: 'implicit',
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll()
