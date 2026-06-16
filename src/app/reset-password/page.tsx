@@ -39,6 +39,8 @@ function ResetPasswordContent() {
   const [checkingSession, setCheckingSession] = useState(true)
   const [hasRecoverySession, setHasRecoverySession] = useState(false)
   const [hasValidToken, setHasValidToken] = useState(false)
+  const [recoveryEmail, setRecoveryEmail] = useState('')
+  const [recoveryDisplayName, setRecoveryDisplayName] = useState('')
   const [email, setEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
@@ -49,6 +51,18 @@ function ResetPasswordContent() {
   const normalizeEmail = (value: string) => value.trim().toLowerCase()
   const getRecoveryRedirect = () =>
     `${window.location.origin}/auth/callback?next=${encodeURIComponent('/reset-password')}`
+
+  const syncRecoveryIdentity = (sessionEmail?: string | null, metadata?: unknown) => {
+    setRecoveryEmail(sessionEmail ?? '')
+
+    if (!metadata || typeof metadata !== 'object') {
+      setRecoveryDisplayName('')
+      return
+    }
+
+    const candidate = (metadata as Record<string, unknown>).display_name
+    setRecoveryDisplayName(typeof candidate === 'string' ? candidate : '')
+  }
 
   useEffect(() => {
     let active = true
@@ -62,16 +76,34 @@ function ResetPasswordContent() {
       const isValidRecoveryUrl = tokenFromUrl && typeFromUrl === 'recovery'
       if (isValidRecoveryUrl) {
         setHasValidToken(true)
+        // If the recovery token is already present, allow showing the form
+        // immediately while session resolution continues in background.
+        setCheckingSession(false)
       }
 
-      const { data } = await supabase.auth.getSession()
+      try {
+        const { data } = await supabase.auth.getSession()
 
-      if (!active) {
-        return
+        if (!active) {
+          return
+        }
+
+        setHasRecoverySession(Boolean(data.session))
+        syncRecoveryIdentity(data.session?.user.email, data.session?.user.user_metadata)
+      } catch {
+        if (!active) {
+          return
+        }
+
+        // Do not lock the screen in checking mode if session lookup fails.
+        setHasRecoverySession(false)
+      } finally {
+        if (!active) {
+          return
+        }
+
+        setCheckingSession(false)
       }
-
-      setHasRecoverySession(Boolean(data.session))
-      setCheckingSession(false)
     }
 
     void syncSession()
@@ -80,6 +112,7 @@ function ResetPasswordContent() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setHasRecoverySession(Boolean(session))
+      syncRecoveryIdentity(session?.user.email, session?.user.user_metadata)
       setCheckingSession(false)
     })
 
@@ -193,6 +226,14 @@ function ResetPasswordContent() {
           </div>
         ) : isRecoveringPassword ? (
           <form className="mt-6 flex flex-col gap-4" onSubmit={handleUpdatePassword}>
+            <div className="rounded-2xl border border-(--line) bg-(--background-muted) px-3 py-2 text-sm text-(--foreground-muted)">
+              <p>
+                <span className="font-semibold text-foreground">Cuenta:</span>{' '}
+                {recoveryDisplayName ? `${recoveryDisplayName} · ` : ''}
+                {recoveryEmail || 'No disponible'}
+              </p>
+            </div>
+
             <input
               className="thsj-input px-3 py-2.5"
               type="password"
