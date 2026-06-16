@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation'
 import { useAuth } from './auth-provider'
 import Navbar from './navbar'
 
-const PUBLIC_ROUTES = ['/', '/login', '/register', '/reset-password', '/auth/callback']
+const PUBLIC_ROUTES = ['/', '/login', '/register', '/reset-password', '/auth/callback', '/auth/confirm']
 
 function isPublicPath(pathname: string) {
   if (PUBLIC_ROUTES.includes(pathname)) {

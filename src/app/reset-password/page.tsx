@@ -1,12 +1,34 @@
 'use client'
 
 import Link from 'next/link'
-import { FormEvent, useEffect, useState } from 'react'
+import { FormEvent, Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient, createRecoveryClient } from '@/lib/supabase-client'
 import { mapSupabaseAuthErrorMessage } from '@/lib/auth-errors'
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-[calc(100vh-73px)] items-center justify-center px-4 py-8 sm:px-6">
+          <div className="thsj-panel w-full max-w-md p-5 sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-(--foreground-muted)">
+              Marketplace
+            </p>
+            <h1 className="mt-1 text-2xl font-bold text-foreground">Recuperar contraseña</h1>
+            <div className="mt-6 rounded-2xl border border-(--line) bg-(--background-muted) px-4 py-5 text-sm text-(--foreground-muted)">
+              Verificando enlace de recuperacion...
+            </div>
+          </div>
+        </div>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
+  )
+}
+
+function ResetPasswordContent() {
   const supabase = useState(() => createClient())[0]
   // Implicit flow client: prevents pkce_ prefix in token_hash so the server
   // can verify it from any browser/device via verifyOtp in /auth/confirm
