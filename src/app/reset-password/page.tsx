@@ -3,11 +3,14 @@
 import Link from 'next/link'
 import { FormEvent, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { createClient } from '@/lib/supabase-client'
+import { createClient, createRecoveryClient } from '@/lib/supabase-client'
 import { mapSupabaseAuthErrorMessage } from '@/lib/auth-errors'
 
 export default function ResetPasswordPage() {
   const supabase = useState(() => createClient())[0]
+  // Implicit flow client: prevents pkce_ prefix in token_hash so the server
+  // can verify it from any browser/device via verifyOtp in /auth/confirm
+  const supabaseRecovery = useState(() => createRecoveryClient())[0]
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -88,7 +91,7 @@ export default function ResetPasswordPage() {
 
     setLoading(true)
 
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(normalizedEmail, {
+    const { error: resetError } = await supabaseRecovery.auth.resetPasswordForEmail(normalizedEmail, {
       redirectTo: getRecoveryRedirect(),
     })
 
