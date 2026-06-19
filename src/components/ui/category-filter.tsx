@@ -125,7 +125,7 @@ export default function CategoryFilter({
               if (next === 'Todas') {
                 onChangeSubcategory(selectedCategory, resolvedSub!)
               } else {
-                onChangeSubcategory(selectedCategory, next)
+                onChangeSubcategory(selectedCategory, `${resolvedSub} > ${next}`)
               }
             }}
             className="thsj-input w-full appearance-none px-3 py-2.5 pr-9 text-sm"

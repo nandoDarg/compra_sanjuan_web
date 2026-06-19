@@ -97,9 +97,9 @@ export const CATEGORY_TREE: Category[] = [
     'Viajes y Turismo',
   ]),
   makeRoot('Articulos', [
-    makeBranch('Electronica y tecnologia', ['Celulares', 'Audio y video']),
+    makeBranch('Electronica y tecnologia', ['Celulares', 'Audio y video', 'Otros']),
     makeLeaf('Electrodomesticos'),
-    makeBranch('Hogar y muebles', ['Cocina y Bazar', 'Estar y comedor', 'Jardines y Exteriores', 'Muebles']),
+    makeBranch('Hogar y muebles', ['Cocina y Bazar', 'Estar y comedor', 'Jardines y Exteriores', 'Muebles', 'Otros']),
     makeLeaf('Construccion'),
     makeLeaf('Vehiculos, Repuestos y Accesorios'),
     makeLeaf('Deportes y Aire libre'),

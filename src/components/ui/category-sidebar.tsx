@@ -68,9 +68,11 @@ export default function CategorySidebar({
     'border-transparent text-(--foreground-muted) hover:border-(--line-strong) hover:bg-(--background-elevated)'
 
   const rowClass =
-    'flex w-full items-start justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition'
+    'flex items-start justify-between gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-medium transition'
+  const rowFullClass = 'w-full'
+  const rowIndentedClass = 'ms-4 w-[calc(100%-1rem)]'
   const backBtnClass =
-    'flex w-full items-center gap-1.5 rounded-xl border border-transparent px-3 py-2 text-left text-sm font-medium text-(--foreground-muted) transition hover:border-(--line-strong) hover:bg-(--background-elevated)'
+    'group flex w-full items-center gap-2 rounded-xl border border-(--brand-secondary) bg-(--background-elevated) px-3 py-2 text-left text-sm font-semibold text-(--brand-secondary) transition hover:border-(--brand-primary-strong) hover:text-(--brand-primary)'
   const sectionLabelClass =
     'px-3 pt-2 pb-1 text-xs font-semibold uppercase tracking-[0.14em] text-(--foreground-muted)'
 
@@ -89,7 +91,7 @@ export default function CategorySidebar({
             <button
               type="button"
               onClick={() => onSelectCategory('Todas')}
-              className={`${rowClass} ${activeBtn}`}
+              className={`${rowClass} ${rowFullClass} ${activeBtn}`}
             >
               <span className="min-w-0 flex-1 whitespace-normal wrap-break-word text-left leading-tight">Todas las categorias</span>
             </button>
@@ -98,7 +100,7 @@ export default function CategorySidebar({
                 key={category.name}
                 type="button"
                 onClick={() => onSelectCategory(category.name)}
-                className={`${rowClass} ${inactiveBtn}`}
+                className={`${rowClass} ${rowFullClass} ${inactiveBtn}`}
               >
                 <span className="min-w-0 flex-1 whitespace-normal wrap-break-word text-left leading-tight">{category.name}</span>
                 <span className="ml-3 rounded-full bg-(--background-muted) px-2 py-0.5 text-xs font-semibold text-(--foreground-muted)">
@@ -111,7 +113,8 @@ export default function CategorySidebar({
           /* LEVEL 1 — category selected: show its subcategories */
           <>
             <button type="button" onClick={() => onSelectCategory('Todas')} className={backBtnClass}>
-              ← Volver
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-current text-xs leading-none">←</span>
+              <span>Volver</span>
             </button>
             <p className={sectionLabelClass}>{selectedCategory}</p>
             {treeSubcategories.map((sub) => {
@@ -121,7 +124,7 @@ export default function CategorySidebar({
                   key={sub.name}
                   type="button"
                   onClick={() => onSelectSubcategory(selectedCategory, sub.name)}
-                  className={`${rowClass} ps-4 ${inactiveSubBtn}`}
+                  className={`${rowClass} ${rowIndentedClass} ${inactiveSubBtn}`}
                 >
                   <span className="min-w-0 flex-1 whitespace-normal wrap-break-word text-left leading-tight">{sub.name}</span>
                   {count !== undefined ? (
@@ -141,15 +144,16 @@ export default function CategorySidebar({
               onClick={() => onSelectCategory(selectedCategory)}
               className={backBtnClass}
             >
-              ← Volver
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-current text-xs leading-none">←</span>
+              <span>Volver</span>
             </button>
             <p className={sectionLabelClass}>{browsedSub}</p>
             {tertiaryChildren.map((tertiary) => (
               <button
                 key={tertiary.name}
                 type="button"
-                onClick={() => onSelectSubcategory(selectedCategory, tertiary.name)}
-                className={`${rowClass} ps-4 ${inactiveSubBtn}`}
+                onClick={() => onSelectSubcategory(selectedCategory, `${browsedSub} > ${tertiary.name}`)}
+                className={`${rowClass} ${rowIndentedClass} ${inactiveSubBtn}`}
               >
                 <span className="min-w-0 flex-1 whitespace-normal wrap-break-word text-left leading-tight">{tertiary.name}</span>
               </button>
@@ -163,7 +167,8 @@ export default function CategorySidebar({
               onClick={() => onSelectSubcategory(selectedCategory, browsedSub!)}
               className={backBtnClass}
             >
-              ← Volver
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-current text-xs leading-none">←</span>
+              <span>Volver</span>
             </button>
             <p className={sectionLabelClass}>{browsedSub}</p>
             {tertiaryChildren.map((tertiary) => {
@@ -172,8 +177,8 @@ export default function CategorySidebar({
                 <button
                   key={tertiary.name}
                   type="button"
-                  onClick={() => onSelectSubcategory(selectedCategory, tertiary.name)}
-                  className={`${rowClass} ps-4 ${isActive ? activeSubBtn : inactiveSubBtn}`}
+                  onClick={() => onSelectSubcategory(selectedCategory, `${browsedSub} > ${tertiary.name}`)}
+                  className={`${rowClass} ${rowIndentedClass} ${isActive ? activeSubBtn : inactiveSubBtn}`}
                 >
                   <span className="min-w-0 flex-1 whitespace-normal wrap-break-word text-left leading-tight">{tertiary.name}</span>
                 </button>
@@ -188,7 +193,8 @@ export default function CategorySidebar({
               onClick={() => onSelectCategory(selectedCategory)}
               className={backBtnClass}
             >
-              ← Volver
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-current text-xs leading-none">←</span>
+              <span>Volver</span>
             </button>
             <p className={sectionLabelClass}>{selectedCategory}</p>
             {treeSubcategories.map((sub) => {
@@ -199,7 +205,7 @@ export default function CategorySidebar({
                   key={sub.name}
                   type="button"
                   onClick={() => onSelectSubcategory(selectedCategory, sub.name)}
-                  className={`${rowClass} ${isActive ? activeSubBtn : inactiveSubBtn}`}
+                  className={`${rowClass} ${rowIndentedClass} ${isActive ? activeSubBtn : inactiveSubBtn}`}
                 >
                   <span className="min-w-0 flex-1 whitespace-normal wrap-break-word text-left leading-tight">{sub.name}</span>
                   {count !== undefined ? (
