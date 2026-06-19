@@ -25,6 +25,7 @@ type Post = {
   price: number
   category: string
   subcategory: string | null
+  tertiarySubcategory?: string | null
   condition: 'new' | 'used' | null
   location_department: string | null
   image_url: string | null
@@ -187,7 +188,9 @@ const scoreByHistory = (
     if (category.includes(normalizedTerm)) score += 2
   }
 
-  const categoryPath = normalizeText(getCategoryPathLabel(post.category, post.subcategory))
+  const categoryPath = normalizeText(
+    getCategoryPathLabel(post.category, post.subcategory, post.tertiarySubcategory)
+  )
 
   const categoryAffinity = interactionCategoryPaths.reduce((acc, current) => {
     return normalizeText(current) === categoryPath ? acc + 1 : acc
@@ -219,11 +222,11 @@ function HomeContent() {
     [searchParams]
   )
   const selectedCategory = useMemo(
-    () => searchParams.get('category')?.trim() || 'Todas',
+    () => searchParams.get('cat')?.trim() || 'Todas',
     [searchParams]
   )
   const selectedSubcategory = useMemo(
-    () => searchParams.get('subcategory')?.trim() || 'Todas',
+    () => searchParams.get('sub')?.trim() || 'Todas',
     [searchParams]
   )
   const [posts, setPosts] = useState<Post[]>([])
@@ -281,15 +284,15 @@ function HomeContent() {
       const params = new URLSearchParams(searchParams.toString())
 
       if (category === 'Todas') {
-        params.delete('category')
-        params.delete('subcategory')
+        params.delete('cat')
+        params.delete('sub')
       } else {
-        params.set('category', category)
+        params.set('cat', category)
 
         if (subcategory !== 'Todas') {
-          params.set('subcategory', subcategory)
+          params.set('sub', subcategory)
         } else {
-          params.delete('subcategory')
+          params.delete('sub')
         }
       }
 
@@ -320,6 +323,14 @@ function HomeContent() {
     return val === 'new' || val === 'used' ? val : null
   }, [searchParams])
 
+  const selectedSubcategorySelection = useMemo(() => {
+    if (selectedCategory === 'Todas' || selectedSubcategory === 'Todas') {
+      return null
+    }
+
+    return resolveCategorySelection(selectedCategory, selectedSubcategory)
+  }, [selectedCategory, selectedSubcategory])
+
   const updateCondition = useCallback(
     (nextValue: 'new' | 'used' | null) => {
       const params = new URLSearchParams(searchParams.toString())
@@ -346,6 +357,29 @@ function HomeContent() {
     })
   }
 
+  const matchesSubcategoryFilter = useCallback(
+    (post: Post) => {
+      if (selectedSubcategory === 'Todas') {
+        return true
+      }
+
+      if (!selectedSubcategorySelection?.subcategory) {
+        return post.subcategory === selectedSubcategory
+      }
+
+      if (post.subcategory !== selectedSubcategorySelection.subcategory) {
+        return false
+      }
+
+      if (!selectedSubcategorySelection.tertiarySubcategory) {
+        return true
+      }
+
+      return post.tertiarySubcategory === selectedSubcategorySelection.tertiarySubcategory
+    },
+    [selectedSubcategory, selectedSubcategorySelection]
+  )
+
   useEffect(() => {
     const bootstrapViewer = async () => {
       const { data } = await supabase.auth.getUser()
@@ -367,7 +401,7 @@ function HomeContent() {
     const existing = readInteractionHistory(viewerId).filter(
       (item) => item.postId !== post.id
     )
-    const categoryPath = getCategoryPathLabel(post.category, post.subcategory)
+    const categoryPath = getCategoryPathLabel(post.category, post.subcategory, post.tertiarySubcategory)
     const updated = [
       { postId: post.id, categoryPath, timestamp: new Date().toISOString() },
       ...existing,
@@ -534,7 +568,7 @@ function HomeContent() {
         const postsForDisplay = basePosts.filter(
           (post) =>
             (selectedCategory === 'Todas' || post.category === selectedCategory) &&
-            (selectedSubcategory === 'Todas' || post.subcategory === selectedSubcategory) &&
+            matchesSubcategoryFilter(post) &&
             (!selectedCondition || post.condition === selectedCondition)
         )
 
@@ -597,7 +631,7 @@ function HomeContent() {
           const filteredFallbackCandidates = fallbackCandidates.filter(
             (post) =>
               (selectedCategory === 'Todas' || post.category === selectedCategory) &&
-              (selectedSubcategory === 'Todas' || post.subcategory === selectedSubcategory) &&
+              matchesSubcategoryFilter(post) &&
               (!selectedCondition || post.condition === selectedCondition)
           )
 
@@ -671,9 +705,11 @@ function HomeContent() {
     searchQuery,
     selectedCategory,
     selectedSubcategory,
+    selectedSubcategorySelection,
     selectedCondition,
     sortBy,
     supabase,
+    matchesSubcategoryFilter,
   ])
 
   const hasFilters =
@@ -701,7 +737,7 @@ function HomeContent() {
   }
 
   return (
-    <section className="flex w-full flex-1 flex-col gap-4 py-4 sm:gap-5 sm:py-5 lg:grid lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start lg:gap-6">
+    <section className="flex w-full flex-1 flex-col gap-4 py-4 sm:gap-5 sm:py-5 lg:grid lg:grid-cols-[minmax(260px,max-content)_minmax(0,1fr)] lg:items-start lg:gap-6">
       <div className="lg:order-1">
         <CategorySidebar
           categories={desktopCategories}
@@ -764,7 +800,7 @@ function HomeContent() {
                   'whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition',
                   selectedCondition === cond
                     ? cond === 'new'
-                      ? 'border-[var(--success)] bg-[var(--success)] text-white shadow-sm'
+                      ? 'border-(--success) bg-(--success) text-white shadow-sm'
                       : 'border-(--brand-secondary) bg-(--brand-secondary) text-white shadow-sm'
                     : 'thsj-chip hover:border-(--line-strong) hover:bg-(--background-elevated)',
                 ].join(' ')}
@@ -846,7 +882,7 @@ function HomeContent() {
               id={post.id}
               title={post.title}
               description={post.description}
-              category={getCategoryPathLabel(post.category, post.subcategory)}
+              category={getCategoryPathLabel(post.category, post.subcategory, post.tertiarySubcategory)}
               locationDepartment={post.location_department}
               price={post.price}
               imageUrl={post.image_url}

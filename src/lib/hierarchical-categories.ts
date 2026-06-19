@@ -8,6 +8,13 @@ export type Category = {
 type CategorySelection = {
   category: string
   subcategory: string | null
+  tertiarySubcategory: string | null
+}
+
+export type CategoryRouteSelection = {
+  category: Category
+  subcategory: Category
+  tertiarySubcategories: Category[]
 }
 
 function slugify(value: string) {
@@ -20,6 +27,10 @@ function slugify(value: string) {
     .replace(/\s+/g, '-')
 }
 
+function buildSubcategoryRouteSlug(categoryName: string, subcategoryName: string) {
+  return `${slugify(categoryName)}--${slugify(subcategoryName)}`
+}
+
 function makeLeaf(name: string): Category {
   const slug = slugify(name)
   return {
@@ -29,7 +40,7 @@ function makeLeaf(name: string): Category {
   }
 }
 
-function makeRoot(name: string, children: string[]): Category {
+function makeBranch(name: string, children: string[]): Category {
   const slug = slugify(name)
   return {
     id: slug,
@@ -39,70 +50,69 @@ function makeRoot(name: string, children: string[]): Category {
   }
 }
 
+function makeRoot(name: string, children: Category[]): Category {
+  const slug = slugify(name)
+  return {
+    id: slug,
+    name,
+    slug,
+    children,
+  }
+}
+
 export const CATEGORY_TREE: Category[] = [
-  makeRoot('Vehiculos', [
+  makeBranch('Vehiculos', [
     'Autos',
-    'Camionetas',
-    'SUVs',
-    'Motos',
     'Camiones',
-    'Utilitarios',
+    'Camionetas, Utilitarios, SUV',
+    'Motos, Cuatriciclos',
     'Nautica',
-    'Repuestos y Accesorios',
+    'Otros vehiculos',
+    'Planes de Ahorro',
   ]),
-  makeRoot('Tecnologia', [
-    'Celulares',
-    'Tablets',
-    'Notebooks',
-    'PCs de Escritorio',
-    'Monitores',
-    'Smart TVs',
-    'Consolas',
-    'Videojuegos',
-    'Audio',
-    'Camaras',
-    'Impresoras',
-    'Redes y WiFi',
-    'Accesorios',
-  ]),
-  makeRoot('Hogar y Muebles', [
-    'Muebles',
-    'Electrodomesticos',
-    'Decoracion',
-    'Jardin',
-    'Iluminacion',
-    'Herramientas',
-  ]),
-  makeRoot('Inmuebles', [
+  makeBranch('Inmuebles', [
     'Casas',
+    'Cocheras',
     'Departamentos',
-    'Terrenos',
-    'Locales Comerciales',
-    'Oficinas',
+    'Fincas, Campos, Quintas',
     'Galpones',
+    'Locales, Salones, Oficinas, Consultorios',
+    'Negocios, Industrias',
+    'Parcelas, Nichos',
+    'Terrenos, Lotes',
+    'Transferencias, Carpetas',
   ]),
-  makeRoot('Deportes y Fitness', [
-    'Bicicletas',
-    'Gimnasio',
-    'Camping',
-    'Pesca',
-    'Deportes de Equipo',
+  makeBranch('Servicios', [
+    'Cursos y Capacitaciones',
+    'Belleza y Cuidado personal',
+    'Empleos',
+    'Fiestas y Eventos',
+    'Diseno e Impresiones',
+    'Mantenimiento de Vehiculos',
+    'Mantenimiento del Hogar',
+    'Otros Servicios',
+    'Profesionales',
+    'Servicio Tecnico',
+    'Traslados y Fletes',
+    'Viajes y Turismo',
   ]),
-  makeRoot('Moda', ['Hombre', 'Mujer', 'Calzado', 'Accesorios']),
-  makeRoot('Ninos y Bebes', ['Juguetes', 'Ropa', 'Cochecitos', 'Muebles Infantiles']),
-  makeRoot('Empleo', ['Ofertas Laborales', 'Servicios Profesionales']),
-  makeRoot('Servicios', [
-    'Construccion',
-    'Electricidad',
-    'Plomeria',
-    'Informatica',
-    'Diseno',
-    'Clases Particulares',
-    'Transporte',
+  makeRoot('Articulos', [
+    makeBranch('Electronica y tecnologia', ['Celulares', 'Audio y video']),
+    makeLeaf('Electrodomesticos'),
+    makeBranch('Hogar y muebles', ['Cocina y Bazar', 'Estar y comedor', 'Jardines y Exteriores', 'Muebles']),
+    makeLeaf('Construccion'),
+    makeLeaf('Vehiculos, Repuestos y Accesorios'),
+    makeLeaf('Deportes y Aire libre'),
+    makeLeaf('Industria y Oficina'),
+    makeLeaf('Relojes y Joyas'),
+    makeLeaf('Bebes y Ninos'),
+    makeLeaf('Juegos y Juguetes'),
+    makeLeaf('Libros, Revistas y Comics'),
+    makeLeaf('Indumentaria y Accesorios'),
+    makeLeaf('Otros'),
+    makeLeaf('Animales y Mascotas'),
+    makeLeaf('Cotillon y Fiestas'),
   ]),
-  makeRoot('Agro', ['Maquinaria Agricola', 'Insumos', 'Ganaderia']),
-  makeRoot('Mascotas', ['Perros', 'Gatos', 'Accesorios', 'Servicios']),
-  makeRoot('Otros', ['Varios']),
 ]
 
 const ROOT_BY_SLUG = new Map(CATEGORY_TREE.map((root) => [root.slug, root]))
@@ -129,133 +139,139 @@ function registerSynonym(label: string, selection: CategorySelection) {
 }
 
 for (const root of CATEGORY_TREE) {
-  registerSynonym(root.name, { category: root.name, subcategory: null })
+  registerSynonym(root.name, { category: root.name, subcategory: null, tertiarySubcategory: null })
 
-  for (const child of root.children ?? []) {
-    registerSynonym(child.name, { category: root.name, subcategory: child.name })
+  for (const subcategory of root.children ?? []) {
+    registerSynonym(subcategory.name, {
+      category: root.name,
+      subcategory: subcategory.name,
+      tertiarySubcategory: null,
+    })
+
+    for (const tertiarySubcategory of subcategory.children ?? []) {
+      const selection: CategorySelection = {
+        category: root.name,
+        subcategory: subcategory.name,
+        tertiarySubcategory: tertiarySubcategory.name,
+      }
+
+      registerSynonym(tertiarySubcategory.name, selection)
+      registerSynonym(`${subcategory.name} ${tertiarySubcategory.name}`, selection)
+      registerSynonym(`${subcategory.name} > ${tertiarySubcategory.name}`, selection)
+      registerSynonym(`${root.name} ${subcategory.name} ${tertiarySubcategory.name}`, selection)
+    }
   }
 }
 
 const LEGACY_COMPATIBILITY_MAP: Array<[string, CategorySelection]> = [
-  ['automotores', { category: 'Vehiculos', subcategory: 'Autos' }],
-  ['auto', { category: 'Vehiculos', subcategory: 'Autos' }],
-  ['autos', { category: 'Vehiculos', subcategory: 'Autos' }],
-  ['camioneta', { category: 'Vehiculos', subcategory: 'Camionetas' }],
-  ['camionetas', { category: 'Vehiculos', subcategory: 'Camionetas' }],
-  ['suv', { category: 'Vehiculos', subcategory: 'SUVs' }],
-  ['suvs', { category: 'Vehiculos', subcategory: 'SUVs' }],
-  ['moto', { category: 'Vehiculos', subcategory: 'Motos' }],
-  ['motos', { category: 'Vehiculos', subcategory: 'Motos' }],
-  ['camion', { category: 'Vehiculos', subcategory: 'Camiones' }],
-  ['camiones', { category: 'Vehiculos', subcategory: 'Camiones' }],
-  ['utilitario', { category: 'Vehiculos', subcategory: 'Utilitarios' }],
-  ['utilitarios', { category: 'Vehiculos', subcategory: 'Utilitarios' }],
-  ['nautica', { category: 'Vehiculos', subcategory: 'Nautica' }],
-  ['repuestos', { category: 'Vehiculos', subcategory: 'Repuestos y Accesorios' }],
-  ['accesorios vehiculos', { category: 'Vehiculos', subcategory: 'Repuestos y Accesorios' }],
+  ['automotores', { category: 'Vehiculos', subcategory: 'Autos', tertiarySubcategory: null }],
+  ['auto', { category: 'Vehiculos', subcategory: 'Autos', tertiarySubcategory: null }],
+  ['autos', { category: 'Vehiculos', subcategory: 'Autos', tertiarySubcategory: null }],
+  ['camioneta', { category: 'Vehiculos', subcategory: 'Camionetas, Utilitarios, SUV', tertiarySubcategory: null }],
+  ['camionetas', { category: 'Vehiculos', subcategory: 'Camionetas, Utilitarios, SUV', tertiarySubcategory: null }],
+  ['utilitario', { category: 'Vehiculos', subcategory: 'Camionetas, Utilitarios, SUV', tertiarySubcategory: null }],
+  ['utilitarios', { category: 'Vehiculos', subcategory: 'Camionetas, Utilitarios, SUV', tertiarySubcategory: null }],
+  ['suv', { category: 'Vehiculos', subcategory: 'Camionetas, Utilitarios, SUV', tertiarySubcategory: null }],
+  ['suvs', { category: 'Vehiculos', subcategory: 'Camionetas, Utilitarios, SUV', tertiarySubcategory: null }],
+  ['moto', { category: 'Vehiculos', subcategory: 'Motos, Cuatriciclos', tertiarySubcategory: null }],
+  ['motos', { category: 'Vehiculos', subcategory: 'Motos, Cuatriciclos', tertiarySubcategory: null }],
+  ['cuatriciclo', { category: 'Vehiculos', subcategory: 'Motos, Cuatriciclos', tertiarySubcategory: null }],
+  ['cuatriciclos', { category: 'Vehiculos', subcategory: 'Motos, Cuatriciclos', tertiarySubcategory: null }],
+  ['camion', { category: 'Vehiculos', subcategory: 'Camiones', tertiarySubcategory: null }],
+  ['camiones', { category: 'Vehiculos', subcategory: 'Camiones', tertiarySubcategory: null }],
+  ['nautica', { category: 'Vehiculos', subcategory: 'Nautica', tertiarySubcategory: null }],
+  ['otros vehiculos', { category: 'Vehiculos', subcategory: 'Otros vehiculos', tertiarySubcategory: null }],
+  ['planes', { category: 'Vehiculos', subcategory: 'Planes de Ahorro', tertiarySubcategory: null }],
+  ['planes de ahorro', { category: 'Vehiculos', subcategory: 'Planes de Ahorro', tertiarySubcategory: null }],
+  ['repuestos', { category: 'Articulos', subcategory: 'Vehiculos, Repuestos y Accesorios', tertiarySubcategory: null }],
+  ['accesorios vehiculos', { category: 'Articulos', subcategory: 'Vehiculos, Repuestos y Accesorios', tertiarySubcategory: null }],
 
-  ['tecnologia', { category: 'Tecnologia', subcategory: null }],
-  ['celular', { category: 'Tecnologia', subcategory: 'Celulares' }],
-  ['celulares', { category: 'Tecnologia', subcategory: 'Celulares' }],
-  ['telefono', { category: 'Tecnologia', subcategory: 'Celulares' }],
-  ['telefonos', { category: 'Tecnologia', subcategory: 'Celulares' }],
-  ['smartphone', { category: 'Tecnologia', subcategory: 'Celulares' }],
-  ['smartphones', { category: 'Tecnologia', subcategory: 'Celulares' }],
-  ['tablet', { category: 'Tecnologia', subcategory: 'Tablets' }],
-  ['tablets', { category: 'Tecnologia', subcategory: 'Tablets' }],
-  ['notebook', { category: 'Tecnologia', subcategory: 'Notebooks' }],
-  ['notebooks', { category: 'Tecnologia', subcategory: 'Notebooks' }],
-  ['laptop', { category: 'Tecnologia', subcategory: 'Notebooks' }],
-  ['laptops', { category: 'Tecnologia', subcategory: 'Notebooks' }],
-  ['pc', { category: 'Tecnologia', subcategory: 'PCs de Escritorio' }],
-  ['pcs', { category: 'Tecnologia', subcategory: 'PCs de Escritorio' }],
-  ['computadora', { category: 'Tecnologia', subcategory: 'PCs de Escritorio' }],
-  ['computadoras', { category: 'Tecnologia', subcategory: 'PCs de Escritorio' }],
-  ['monitor', { category: 'Tecnologia', subcategory: 'Monitores' }],
-  ['monitores', { category: 'Tecnologia', subcategory: 'Monitores' }],
-  ['smart tv', { category: 'Tecnologia', subcategory: 'Smart TVs' }],
-  ['smarttv', { category: 'Tecnologia', subcategory: 'Smart TVs' }],
-  ['tv', { category: 'Tecnologia', subcategory: 'Smart TVs' }],
-  ['consola', { category: 'Tecnologia', subcategory: 'Consolas' }],
-  ['consolas', { category: 'Tecnologia', subcategory: 'Consolas' }],
-  ['videojuego', { category: 'Tecnologia', subcategory: 'Videojuegos' }],
-  ['videojuegos', { category: 'Tecnologia', subcategory: 'Videojuegos' }],
-  ['audio', { category: 'Tecnologia', subcategory: 'Audio' }],
-  ['camara', { category: 'Tecnologia', subcategory: 'Camaras' }],
-  ['camaras', { category: 'Tecnologia', subcategory: 'Camaras' }],
-  ['impresora', { category: 'Tecnologia', subcategory: 'Impresoras' }],
-  ['impresoras', { category: 'Tecnologia', subcategory: 'Impresoras' }],
-  ['wifi', { category: 'Tecnologia', subcategory: 'Redes y WiFi' }],
-  ['redes', { category: 'Tecnologia', subcategory: 'Redes y WiFi' }],
+  ['inmueble', { category: 'Inmuebles', subcategory: null, tertiarySubcategory: null }],
+  ['inmuebles', { category: 'Inmuebles', subcategory: null, tertiarySubcategory: null }],
+  ['casa', { category: 'Inmuebles', subcategory: 'Casas', tertiarySubcategory: null }],
+  ['casas', { category: 'Inmuebles', subcategory: 'Casas', tertiarySubcategory: null }],
+  ['cochera', { category: 'Inmuebles', subcategory: 'Cocheras', tertiarySubcategory: null }],
+  ['cocheras', { category: 'Inmuebles', subcategory: 'Cocheras', tertiarySubcategory: null }],
+  ['departamento', { category: 'Inmuebles', subcategory: 'Departamentos', tertiarySubcategory: null }],
+  ['departamentos', { category: 'Inmuebles', subcategory: 'Departamentos', tertiarySubcategory: null }],
+  ['terreno', { category: 'Inmuebles', subcategory: 'Terrenos, Lotes', tertiarySubcategory: null }],
+  ['terrenos', { category: 'Inmuebles', subcategory: 'Terrenos, Lotes', tertiarySubcategory: null }],
+  ['lotes', { category: 'Inmuebles', subcategory: 'Terrenos, Lotes', tertiarySubcategory: null }],
+  ['local', { category: 'Inmuebles', subcategory: 'Locales, Salones, Oficinas, Consultorios', tertiarySubcategory: null }],
+  ['locales', { category: 'Inmuebles', subcategory: 'Locales, Salones, Oficinas, Consultorios', tertiarySubcategory: null }],
+  ['oficina', { category: 'Inmuebles', subcategory: 'Locales, Salones, Oficinas, Consultorios', tertiarySubcategory: null }],
+  ['oficinas', { category: 'Inmuebles', subcategory: 'Locales, Salones, Oficinas, Consultorios', tertiarySubcategory: null }],
+  ['finca', { category: 'Inmuebles', subcategory: 'Fincas, Campos, Quintas', tertiarySubcategory: null }],
+  ['fincas', { category: 'Inmuebles', subcategory: 'Fincas, Campos, Quintas', tertiarySubcategory: null }],
+  ['campo', { category: 'Inmuebles', subcategory: 'Fincas, Campos, Quintas', tertiarySubcategory: null }],
+  ['quinta', { category: 'Inmuebles', subcategory: 'Fincas, Campos, Quintas', tertiarySubcategory: null }],
+  ['negocio', { category: 'Inmuebles', subcategory: 'Negocios, Industrias', tertiarySubcategory: null }],
+  ['negocios', { category: 'Inmuebles', subcategory: 'Negocios, Industrias', tertiarySubcategory: null }],
+  ['carpeta', { category: 'Inmuebles', subcategory: 'Transferencias, Carpetas', tertiarySubcategory: null }],
+  ['carpetas', { category: 'Inmuebles', subcategory: 'Transferencias, Carpetas', tertiarySubcategory: null }],
 
-  ['hogar y muebles', { category: 'Hogar y Muebles', subcategory: null }],
-  ['hogar', { category: 'Hogar y Muebles', subcategory: null }],
-  ['mueble', { category: 'Hogar y Muebles', subcategory: 'Muebles' }],
-  ['muebles', { category: 'Hogar y Muebles', subcategory: 'Muebles' }],
-  ['electrodomestico', { category: 'Hogar y Muebles', subcategory: 'Electrodomesticos' }],
-  ['electrodomesticos', { category: 'Hogar y Muebles', subcategory: 'Electrodomesticos' }],
-  ['decoracion', { category: 'Hogar y Muebles', subcategory: 'Decoracion' }],
-  ['jardin', { category: 'Hogar y Muebles', subcategory: 'Jardin' }],
-  ['iluminacion', { category: 'Hogar y Muebles', subcategory: 'Iluminacion' }],
-  ['herramientas y construccion', { category: 'Hogar y Muebles', subcategory: 'Herramientas' }],
+  ['servicio', { category: 'Servicios', subcategory: null, tertiarySubcategory: null }],
+  ['servicios', { category: 'Servicios', subcategory: null, tertiarySubcategory: null }],
+  ['capacitaciones', { category: 'Servicios', subcategory: 'Cursos y Capacitaciones', tertiarySubcategory: null }],
+  ['cursos', { category: 'Servicios', subcategory: 'Cursos y Capacitaciones', tertiarySubcategory: null }],
+  ['cuidado personal', { category: 'Servicios', subcategory: 'Belleza y Cuidado personal', tertiarySubcategory: null }],
+  ['belleza', { category: 'Servicios', subcategory: 'Belleza y Cuidado personal', tertiarySubcategory: null }],
+  ['empleo', { category: 'Servicios', subcategory: 'Empleos', tertiarySubcategory: null }],
+  ['empleos', { category: 'Servicios', subcategory: 'Empleos', tertiarySubcategory: null }],
+  ['fiestas', { category: 'Servicios', subcategory: 'Fiestas y Eventos', tertiarySubcategory: null }],
+  ['eventos', { category: 'Servicios', subcategory: 'Fiestas y Eventos', tertiarySubcategory: null }],
+  ['imprenta', { category: 'Servicios', subcategory: 'Diseno e Impresiones', tertiarySubcategory: null }],
+  ['diseno', { category: 'Servicios', subcategory: 'Diseno e Impresiones', tertiarySubcategory: null }],
+  ['impresiones', { category: 'Servicios', subcategory: 'Diseno e Impresiones', tertiarySubcategory: null }],
+  ['mantenimiento vehiculos', { category: 'Servicios', subcategory: 'Mantenimiento de Vehiculos', tertiarySubcategory: null }],
+  ['mantenimiento del hogar', { category: 'Servicios', subcategory: 'Mantenimiento del Hogar', tertiarySubcategory: null }],
+  ['profesional', { category: 'Servicios', subcategory: 'Profesionales', tertiarySubcategory: null }],
+  ['profesionales', { category: 'Servicios', subcategory: 'Profesionales', tertiarySubcategory: null }],
+  ['tecnico', { category: 'Servicios', subcategory: 'Servicio Tecnico', tertiarySubcategory: null }],
+  ['servicio tecnico', { category: 'Servicios', subcategory: 'Servicio Tecnico', tertiarySubcategory: null }],
+  ['transporte', { category: 'Servicios', subcategory: 'Traslados y Fletes', tertiarySubcategory: null }],
+  ['traslados', { category: 'Servicios', subcategory: 'Traslados y Fletes', tertiarySubcategory: null }],
+  ['fletes', { category: 'Servicios', subcategory: 'Traslados y Fletes', tertiarySubcategory: null }],
+  ['viajes', { category: 'Servicios', subcategory: 'Viajes y Turismo', tertiarySubcategory: null }],
+  ['turismo', { category: 'Servicios', subcategory: 'Viajes y Turismo', tertiarySubcategory: null }],
 
-  ['inmueble', { category: 'Inmuebles', subcategory: null }],
-  ['inmuebles', { category: 'Inmuebles', subcategory: null }],
-  ['casa', { category: 'Inmuebles', subcategory: 'Casas' }],
-  ['casas', { category: 'Inmuebles', subcategory: 'Casas' }],
-  ['departamento', { category: 'Inmuebles', subcategory: 'Departamentos' }],
-  ['departamentos', { category: 'Inmuebles', subcategory: 'Departamentos' }],
-  ['terreno', { category: 'Inmuebles', subcategory: 'Terrenos' }],
-  ['terrenos', { category: 'Inmuebles', subcategory: 'Terrenos' }],
-  ['oficina', { category: 'Inmuebles', subcategory: 'Oficinas' }],
-  ['oficinas', { category: 'Inmuebles', subcategory: 'Oficinas' }],
-
-  ['salud y deportes', { category: 'Deportes y Fitness', subcategory: null }],
-  ['deporte', { category: 'Deportes y Fitness', subcategory: null }],
-  ['deportes', { category: 'Deportes y Fitness', subcategory: null }],
-  ['bicicleta', { category: 'Deportes y Fitness', subcategory: 'Bicicletas' }],
-  ['bicicletas', { category: 'Deportes y Fitness', subcategory: 'Bicicletas' }],
-  ['gimnasio', { category: 'Deportes y Fitness', subcategory: 'Gimnasio' }],
-  ['camping', { category: 'Deportes y Fitness', subcategory: 'Camping' }],
-  ['pesca', { category: 'Deportes y Fitness', subcategory: 'Pesca' }],
-
-  ['moda y belleza', { category: 'Moda', subcategory: null }],
-  ['moda', { category: 'Moda', subcategory: null }],
-  ['hombre', { category: 'Moda', subcategory: 'Hombre' }],
-  ['mujer', { category: 'Moda', subcategory: 'Mujer' }],
-  ['calzado', { category: 'Moda', subcategory: 'Calzado' }],
-
-  ['bebes y ninos', { category: 'Ninos y Bebes', subcategory: null }],
-  ['ninos y bebes', { category: 'Ninos y Bebes', subcategory: null }],
-  ['juguetes', { category: 'Ninos y Bebes', subcategory: 'Juguetes' }],
-  ['cochecitos', { category: 'Ninos y Bebes', subcategory: 'Cochecitos' }],
-
-  ['empleo', { category: 'Empleo', subcategory: null }],
-  ['ofertas laborales', { category: 'Empleo', subcategory: 'Ofertas Laborales' }],
-  ['servicios profesionales', { category: 'Empleo', subcategory: 'Servicios Profesionales' }],
-
-  ['servicio', { category: 'Servicios', subcategory: null }],
-  ['servicios', { category: 'Servicios', subcategory: null }],
-  ['construccion', { category: 'Servicios', subcategory: 'Construccion' }],
-  ['electricidad', { category: 'Servicios', subcategory: 'Electricidad' }],
-  ['plomeria', { category: 'Servicios', subcategory: 'Plomeria' }],
-  ['informatica', { category: 'Servicios', subcategory: 'Informatica' }],
-  ['diseno', { category: 'Servicios', subcategory: 'Diseno' }],
-  ['transporte', { category: 'Servicios', subcategory: 'Transporte' }],
-
-  ['agro', { category: 'Agro', subcategory: null }],
-  ['maquinaria agricola', { category: 'Agro', subcategory: 'Maquinaria Agricola' }],
-  ['insumos', { category: 'Agro', subcategory: 'Insumos' }],
-  ['ganaderia', { category: 'Agro', subcategory: 'Ganaderia' }],
-
-  ['mascota', { category: 'Mascotas', subcategory: null }],
-  ['mascotas', { category: 'Mascotas', subcategory: null }],
-  ['perros', { category: 'Mascotas', subcategory: 'Perros' }],
-  ['gatos', { category: 'Mascotas', subcategory: 'Gatos' }],
-  ['accesorios mascotas', { category: 'Mascotas', subcategory: 'Accesorios' }],
-
-  ['otros', { category: 'Otros', subcategory: null }],
-  ['varios', { category: 'Otros', subcategory: 'Varios' }],
+  ['articulo', { category: 'Articulos', subcategory: null, tertiarySubcategory: null }],
+  ['articulos', { category: 'Articulos', subcategory: null, tertiarySubcategory: null }],
+  ['tecnologia', { category: 'Articulos', subcategory: 'Electronica y tecnologia', tertiarySubcategory: null }],
+  ['electronica', { category: 'Articulos', subcategory: 'Electronica y tecnologia', tertiarySubcategory: null }],
+  ['celular', { category: 'Articulos', subcategory: 'Electronica y tecnologia', tertiarySubcategory: 'Celulares' }],
+  ['celulares', { category: 'Articulos', subcategory: 'Electronica y tecnologia', tertiarySubcategory: 'Celulares' }],
+  ['telefono', { category: 'Articulos', subcategory: 'Electronica y tecnologia', tertiarySubcategory: 'Celulares' }],
+  ['telefonos', { category: 'Articulos', subcategory: 'Electronica y tecnologia', tertiarySubcategory: 'Celulares' }],
+  ['audio', { category: 'Articulos', subcategory: 'Electronica y tecnologia', tertiarySubcategory: 'Audio y video' }],
+  ['video', { category: 'Articulos', subcategory: 'Electronica y tecnologia', tertiarySubcategory: 'Audio y video' }],
+  ['electrodomesticos', { category: 'Articulos', subcategory: 'Electrodomesticos', tertiarySubcategory: null }],
+  ['cocina', { category: 'Articulos', subcategory: 'Hogar y muebles', tertiarySubcategory: 'Cocina y Bazar' }],
+  ['bazar', { category: 'Articulos', subcategory: 'Hogar y muebles', tertiarySubcategory: 'Cocina y Bazar' }],
+  ['hogar', { category: 'Articulos', subcategory: 'Hogar y muebles', tertiarySubcategory: null }],
+  ['jardin', { category: 'Articulos', subcategory: 'Hogar y muebles', tertiarySubcategory: 'Jardines y Exteriores' }],
+  ['jardines', { category: 'Articulos', subcategory: 'Hogar y muebles', tertiarySubcategory: 'Jardines y Exteriores' }],
+  ['muebles', { category: 'Articulos', subcategory: 'Hogar y muebles', tertiarySubcategory: 'Muebles' }],
+  ['comedor', { category: 'Articulos', subcategory: 'Hogar y muebles', tertiarySubcategory: 'Estar y comedor' }],
+  ['construccion', { category: 'Articulos', subcategory: 'Construccion', tertiarySubcategory: null }],
+  ['deportes', { category: 'Articulos', subcategory: 'Deportes y Aire libre', tertiarySubcategory: null }],
+  ['aire libre', { category: 'Articulos', subcategory: 'Deportes y Aire libre', tertiarySubcategory: null }],
+  ['oficina', { category: 'Articulos', subcategory: 'Industria y Oficina', tertiarySubcategory: null }],
+  ['industria', { category: 'Articulos', subcategory: 'Industria y Oficina', tertiarySubcategory: null }],
+  ['relojes', { category: 'Articulos', subcategory: 'Relojes y Joyas', tertiarySubcategory: null }],
+  ['joyas', { category: 'Articulos', subcategory: 'Relojes y Joyas', tertiarySubcategory: null }],
+  ['bebes', { category: 'Articulos', subcategory: 'Bebes y Ninos', tertiarySubcategory: null }],
+  ['ninos', { category: 'Articulos', subcategory: 'Bebes y Ninos', tertiarySubcategory: null }],
+  ['juegos', { category: 'Articulos', subcategory: 'Juegos y Juguetes', tertiarySubcategory: null }],
+  ['juguetes', { category: 'Articulos', subcategory: 'Juegos y Juguetes', tertiarySubcategory: null }],
+  ['libros', { category: 'Articulos', subcategory: 'Libros, Revistas y Comics', tertiarySubcategory: null }],
+  ['revistas', { category: 'Articulos', subcategory: 'Libros, Revistas y Comics', tertiarySubcategory: null }],
+  ['comics', { category: 'Articulos', subcategory: 'Libros, Revistas y Comics', tertiarySubcategory: null }],
+  ['indumentaria', { category: 'Articulos', subcategory: 'Indumentaria y Accesorios', tertiarySubcategory: null }],
+  ['accesorios', { category: 'Articulos', subcategory: 'Indumentaria y Accesorios', tertiarySubcategory: null }],
+  ['mascotas', { category: 'Articulos', subcategory: 'Animales y Mascotas', tertiarySubcategory: null }],
+  ['animales', { category: 'Articulos', subcategory: 'Animales y Mascotas', tertiarySubcategory: null }],
+  ['cotillon', { category: 'Articulos', subcategory: 'Cotillon y Fiestas', tertiarySubcategory: null }],
 ]
 
 for (const [legacyLabel, selection] of LEGACY_COMPATIBILITY_MAP) {
@@ -266,9 +282,40 @@ export function getRootCategories() {
   return CATEGORY_TREE
 }
 
+export function getSubcategoryRouteSlug(categoryName: string, subcategoryName: string) {
+  return buildSubcategoryRouteSlug(categoryName, subcategoryName)
+}
+
+export function getSubcategoryRouteSelectionBySlug(slug: string): CategoryRouteSelection | null {
+  const normalizedSlug = slug.trim().toLowerCase()
+
+  if (!normalizedSlug) {
+    return null
+  }
+
+  for (const category of CATEGORY_TREE) {
+    for (const subcategory of category.children ?? []) {
+      if (buildSubcategoryRouteSlug(category.name, subcategory.name) === normalizedSlug) {
+        return {
+          category,
+          subcategory,
+          tertiarySubcategories: subcategory.children ?? [],
+        }
+      }
+    }
+  }
+
+  return null
+}
+
 export function getSubcategories(rootCategory: string) {
   const root = CATEGORY_TREE.find((item) => item.name === rootCategory)
   return root?.children ?? []
+}
+
+export function getTertiarySubcategories(rootCategory: string, subcategory: string) {
+  const subcategoryNode = getSubcategories(rootCategory).find((item) => item.name === subcategory)
+  return subcategoryNode?.children ?? []
 }
 
 export function isValidRootCategory(value: string) {
@@ -283,20 +330,46 @@ export function isValidSubcategory(rootCategory: string, subcategory: string | n
   return getSubcategories(rootCategory).some((item) => item.name === subcategory)
 }
 
-export function resolveCategorySelection(rawCategory: string, rawSubcategory?: string | null): CategorySelection {
+export function isValidTertiarySubcategory(
+  rootCategory: string,
+  subcategory: string | null | undefined,
+  tertiarySubcategory: string | null | undefined
+) {
+  if (!subcategory || !tertiarySubcategory) {
+    return false
+  }
+
+  return getTertiarySubcategories(rootCategory, subcategory).some((item) => item.name === tertiarySubcategory)
+}
+
+export function resolveCategorySelection(
+  rawCategory: string,
+  rawSubcategory?: string | null,
+  rawTertiarySubcategory?: string | null
+): CategorySelection {
   const normalizedCategory = normalizeKey(rawCategory)
   const normalizedSubcategory = normalizeKey(rawSubcategory ?? '')
+  const normalizedTertiarySubcategory = normalizeKey(rawTertiarySubcategory ?? '')
 
-  if (rawSubcategory && isValidSubcategory(rawCategory, rawSubcategory)) {
+  if (
+    rawSubcategory &&
+    isValidSubcategory(rawCategory, rawSubcategory) &&
+    (!rawTertiarySubcategory || isValidTertiarySubcategory(rawCategory, rawSubcategory, rawTertiarySubcategory))
+  ) {
     return {
       category: rawCategory,
       subcategory: rawSubcategory,
+      tertiarySubcategory: rawTertiarySubcategory ?? null,
     }
   }
 
-  const direct = SELECTION_BY_NORMALIZED_NAME.get(normalizedCategory)
-  if (direct) {
-    return direct
+  if (normalizedSubcategory && normalizedTertiarySubcategory) {
+    const combined3 = SELECTION_BY_NORMALIZED_NAME.get(
+      `${normalizedCategory} ${normalizedSubcategory} ${normalizedTertiarySubcategory}`
+    )
+    if (combined3) {
+      return combined3
+    }
   }
 
   if (normalizedSubcategory) {
@@ -310,8 +383,14 @@ export function resolveCategorySelection(rawCategory: string, rawSubcategory?: s
       return {
         category: rawCategory && isValidRootCategory(rawCategory) ? rawCategory : subcategoryOnly.category,
         subcategory: subcategoryOnly.subcategory,
+        tertiarySubcategory: subcategoryOnly.tertiarySubcategory,
       }
     }
+  }
+
+  const direct = SELECTION_BY_NORMALIZED_NAME.get(normalizedCategory)
+  if (direct) {
+    return direct
   }
 
   const fallbackRoot = ROOT_BY_SLUG.get(slugify(rawCategory))
@@ -319,12 +398,14 @@ export function resolveCategorySelection(rawCategory: string, rawSubcategory?: s
     return {
       category: fallbackRoot.name,
       subcategory: null,
+      tertiarySubcategory: null,
     }
   }
 
   return {
-    category: 'Otros',
-    subcategory: 'Varios',
+    category: 'Articulos',
+    subcategory: null,
+    tertiarySubcategory: null,
   }
 }
 
@@ -332,10 +413,18 @@ export function isVehicleRootCategory(value: string) {
   return resolveCategorySelection(value).category === 'Vehiculos'
 }
 
-export function getCategoryPathLabel(category: string, subcategory: string | null | undefined) {
+export function getCategoryPathLabel(
+  category: string,
+  subcategory: string | null | undefined,
+  tertiarySubcategory?: string | null
+) {
   if (!subcategory) {
     return category
   }
 
-  return `${category} > ${subcategory}`
+  if (!tertiarySubcategory) {
+    return `${category} > ${subcategory}`
+  }
+
+  return `${category} > ${subcategory} > ${tertiarySubcategory}`
 }

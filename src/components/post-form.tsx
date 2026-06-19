@@ -4,7 +4,12 @@ import Link from 'next/link'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
-import { CATEGORY_TREE, getSubcategories, resolveCategorySelection } from '@/lib/hierarchical-categories'
+import {
+  CATEGORY_TREE,
+  getSubcategories,
+  getTertiarySubcategories,
+  resolveCategorySelection,
+} from '@/lib/hierarchical-categories'
 import {
   getVehicleYearRange,
   isVehicleCategory,
@@ -109,6 +114,7 @@ type PostFormDraft = {
   form: PostFormValues
   selectedCategory: string
   selectedSubcategory: string
+  selectedTertiarySubcategory: string
   condition: string
   vehicleForm: VehicleFormValues
   existingImageUrls: string[]
@@ -118,6 +124,7 @@ type FormChangeSnapshot = {
   form: PostFormValues
   selectedCategory: string
   selectedSubcategory: string
+  selectedTertiarySubcategory: string
   condition: string
   vehicleForm: VehicleFormValues
   gallery: Array<{ kind: GalleryItem['kind']; value: string }>
@@ -167,6 +174,7 @@ function buildFormChangeSnapshot(args: {
   form: PostFormValues
   selectedCategory: string
   selectedSubcategory: string
+  selectedTertiarySubcategory: string
   condition: string
   vehicleForm: VehicleFormValues
   galleryItems: GalleryItem[]
@@ -175,6 +183,7 @@ function buildFormChangeSnapshot(args: {
     form: args.form,
     selectedCategory: args.selectedCategory,
     selectedSubcategory: args.selectedSubcategory,
+    selectedTertiarySubcategory: args.selectedTertiarySubcategory,
     condition: args.condition,
     vehicleForm: args.vehicleForm,
     gallery: args.galleryItems.map((item) => ({
@@ -416,6 +425,14 @@ export default function PostForm({
     return resolveCategorySelection(initialValues.category, initialValues.subcategory).subcategory ?? ''
   }, [initialValues])
 
+  const defaultSelectedTertiarySubcategory = useMemo(() => {
+    if (!initialValues?.category) {
+      return ''
+    }
+
+    return resolveCategorySelection(initialValues.category, initialValues.subcategory).tertiarySubcategory ?? ''
+  }, [initialValues])
+
   const defaultVehicleForm = useMemo<VehicleFormValues>(() => {
     const details = initialValues?.vehicleDetails
 
@@ -454,6 +471,9 @@ export default function PostForm({
   const [selectedSubcategory, setSelectedSubcategory] = useState(
     () => draft?.selectedSubcategory ?? defaultSelectedSubcategory
   )
+  const [selectedTertiarySubcategory, setSelectedTertiarySubcategory] = useState(
+    () => draft?.selectedTertiarySubcategory ?? defaultSelectedTertiarySubcategory
+  )
 
   const [galleryItems, setGalleryItems] = useState<GalleryItem[]>(() =>
     (draft?.existingImageUrls ?? defaultExistingImageUrls).map((url) => ({
@@ -490,6 +510,11 @@ export default function PostForm({
     [selectedCategory]
   )
 
+  const availableTertiarySubcategories = useMemo(
+    () => getTertiarySubcategories(selectedCategory, selectedSubcategory),
+    [selectedCategory, selectedSubcategory]
+  )
+
   const initialSnapshotKey = useMemo(
     () =>
       toSnapshotKey(
@@ -497,6 +522,7 @@ export default function PostForm({
           form: defaultFormValues,
           selectedCategory: defaultSelectedCategory,
           selectedSubcategory: defaultSelectedSubcategory,
+          selectedTertiarySubcategory: defaultSelectedTertiarySubcategory,
           condition: initialValues?.condition ?? '',
           vehicleForm: defaultVehicleForm,
           galleryItems: defaultExistingImageUrls.map((url) => ({
@@ -511,6 +537,7 @@ export default function PostForm({
       defaultFormValues,
       defaultSelectedCategory,
       defaultSelectedSubcategory,
+      defaultSelectedTertiarySubcategory,
       initialValues?.condition,
       defaultVehicleForm,
     ]
@@ -523,12 +550,21 @@ export default function PostForm({
           form,
           selectedCategory,
           selectedSubcategory,
+          selectedTertiarySubcategory,
           condition: condition ?? '',
           vehicleForm,
           galleryItems,
         })
       ),
-    [condition, form, galleryItems, selectedCategory, selectedSubcategory, vehicleForm]
+    [
+      condition,
+      form,
+      galleryItems,
+      selectedCategory,
+      selectedSubcategory,
+      selectedTertiarySubcategory,
+      vehicleForm,
+    ]
   )
 
   const hasPendingChanges =
@@ -543,6 +579,7 @@ export default function PostForm({
       form,
       selectedCategory,
       selectedSubcategory,
+      selectedTertiarySubcategory,
       condition: condition ?? '',
       vehicleForm,
       existingImageUrls: galleryItems
@@ -558,6 +595,7 @@ export default function PostForm({
     galleryItems,
     selectedCategory,
     selectedSubcategory,
+    selectedTertiarySubcategory,
     shouldUseDraft,
     vehicleForm,
   ])
@@ -584,9 +622,10 @@ export default function PostForm({
     if (files.length > 0) void addImageFiles(files)
   }
 
-  const needsImage = mode === 'create' && galleryItems.length === 0
   const effectiveCategory = selectedCategory.trim()
   const effectiveSubcategory = selectedSubcategory.trim()
+  const effectiveTertiarySubcategory = selectedTertiarySubcategory.trim()
+  const requiresTertiarySubcategory = availableTertiarySubcategories.length > 0
   const showVehicleSection = isVehicleCategory(effectiveCategory)
 
   const addImageFiles = async (incoming: File[]) => {
@@ -802,8 +841,8 @@ export default function PostForm({
       return
     }
 
-    if (mode === 'create' && galleryItems.length === 0) {
-      setErrorMsg('Selecciona al menos una imagen para la publicacion.')
+    if (requiresTertiarySubcategory && !effectiveTertiarySubcategory) {
+      setErrorMsg('Selecciona una subcategoria especifica.')
       return
     }
 
@@ -907,6 +946,10 @@ export default function PostForm({
       .filter((item) => item.kind === 'existing')
       .map((item) => item.url)
 
+    const finalSubcategory = requiresTertiarySubcategory
+      ? `${effectiveSubcategory} > ${effectiveTertiarySubcategory}`
+      : effectiveSubcategory
+
     setSubmitting(true)
 
     let result: { error?: string } | void
@@ -917,7 +960,7 @@ export default function PostForm({
         description: form.description.trim(),
         price: parsedPrice,
         category: finalCategory,
-        subcategory: effectiveSubcategory,
+        subcategory: finalSubcategory,
         whatsappNumber: normalizedWhatsapp,
         imageFiles: newImages.map((item) => item.file),
         newImages,
@@ -1023,6 +1066,7 @@ export default function PostForm({
               onChange={(event) => {
                 setSelectedCategory(event.target.value)
                 setSelectedSubcategory('')
+                setSelectedTertiarySubcategory('')
               }}
               required
             >
@@ -1039,7 +1083,10 @@ export default function PostForm({
             <select
               className="thsj-input mt-2 px-3 py-2.5"
               value={selectedSubcategory}
-              onChange={(event) => setSelectedSubcategory(event.target.value)}
+              onChange={(event) => {
+                setSelectedSubcategory(event.target.value)
+                setSelectedTertiarySubcategory('')
+              }}
               disabled={!selectedCategory}
               required
             >
@@ -1052,6 +1099,25 @@ export default function PostForm({
                 </option>
               ))}
             </select>
+
+            {requiresTertiarySubcategory ? (
+              <select
+                className="thsj-input mt-2 px-3 py-2.5"
+                value={selectedTertiarySubcategory}
+                onChange={(event) => setSelectedTertiarySubcategory(event.target.value)}
+                disabled={!selectedSubcategory}
+                required
+              >
+                <option value="" disabled>
+                  Selecciona una subcategoria especifica
+                </option>
+                {availableTertiarySubcategories.map((tertiarySubcategory) => (
+                  <option key={tertiarySubcategory.id} value={tertiarySubcategory.name}>
+                    {tertiarySubcategory.name}
+                  </option>
+                ))}
+              </select>
+            ) : null}
 
             <span className="text-xs text-(--foreground-muted)">
               Primero elige categoria principal y luego subcategoria.
@@ -1526,9 +1592,7 @@ export default function PostForm({
             )}
           </div>
 
-          {needsImage ? (
-            <span className="text-xs text-(--foreground-muted)">Agrega al menos una imagen para publicar.</span>
-          ) : null}
+          <span className="text-xs text-(--foreground-muted)">Las imagenes son opcionales.</span>
         </div>
 
         {cropTarget ? (

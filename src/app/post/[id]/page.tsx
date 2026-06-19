@@ -24,6 +24,7 @@ type Post = {
   price: number
   category: string
   subcategory: string | null
+  tertiarySubcategory?: string | null
   condition: 'new' | 'used' | null
   whatsapp_number: string | null
   location_department: string | null
@@ -133,11 +134,13 @@ export default function PostDetailPage() {
 
       const { data: profileData } = await supabase
         .from('profiles')
-        .select('display_name')
+        .select('display_name,full_name')
         .eq('user_id', data.user_id)
         .maybeSingle()
 
-      setSellerDisplayName(profileData?.display_name?.trim() || 'Usuario')
+      setSellerDisplayName(
+        profileData?.full_name?.trim() || profileData?.display_name?.trim() || 'Usuario'
+      )
 
       const { data: extraImagesData } = await supabase
         .from('post_images')
@@ -506,7 +509,7 @@ export default function PostDetailPage() {
 
         <aside className="thsj-panel p-5 sm:p-6">
           <div className="thsj-chip inline-flex items-center px-3 py-1 text-xs font-medium">
-            {getCategoryPathLabel(post.category, post.subcategory)}
+            {getCategoryPathLabel(post.category, post.subcategory, post.tertiarySubcategory)}
           </div>
 
           {post.condition ? (
@@ -514,7 +517,7 @@ export default function PostDetailPage() {
               className={[
                 'inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold',
                 post.condition === 'new'
-                  ? 'border-[var(--success)] bg-[#dcfce7] text-[var(--success)]'
+                  ? 'border-(--success) bg-[#dcfce7] text-(--success)'
                   : 'border-(--line-strong) bg-(--background-muted) text-(--foreground-muted)',
               ].join(' ')}
             >
@@ -665,7 +668,11 @@ export default function PostDetailPage() {
                 id={relatedPost.id}
                 title={relatedPost.title}
                 description={relatedPost.description}
-                  category={getCategoryPathLabel(relatedPost.category, relatedPost.subcategory)}
+                  category={getCategoryPathLabel(
+                    relatedPost.category,
+                    relatedPost.subcategory,
+                    relatedPost.tertiarySubcategory
+                  )}
                 locationDepartment={relatedPost.location_department}
                 price={relatedPost.price}
                 imageUrl={relatedPost.image_url}
@@ -735,7 +742,7 @@ export default function PostDetailPage() {
           ) : null}
 
           <div
-            className="relative aspect-square w-[min(95vw,95vh)] max-w-[1200px] overflow-hidden rounded-xl bg-black"
+            className="relative aspect-square w-[min(95vw,95vh)] max-w-300 overflow-hidden rounded-xl bg-black"
             onClick={(event) => event.stopPropagation()}
           >
             <img

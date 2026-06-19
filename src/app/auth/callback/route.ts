@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { buildProfilePayload, normalizeEmail, normalizeText, sanitizeWhatsAppNumber } from '@/lib/user-profile'
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
@@ -55,6 +56,24 @@ export async function GET(request: NextRequest) {
     const redirectUrl = new URL(resolvedNextPath, request.url)
     redirectUrl.searchParams.set('auth_error', error.message)
     return NextResponse.redirect(redirectUrl)
+  }
+
+  const { data: userResult } = await supabase.auth.getUser()
+  const user = userResult.user
+
+  if (user) {
+    const metadata = (user.user_metadata ?? {}) as Record<string, unknown>
+    const fullName = normalizeText(
+      String(metadata.full_name ?? metadata.display_name ?? user.email ?? 'Usuario')
+    )
+    const profilePayload = buildProfilePayload(user.id, {
+      fullName,
+      whatsappNumber: sanitizeWhatsAppNumber(String(metadata.whatsapp_number ?? '')),
+      domicile: normalizeText(String(metadata.domicile ?? '')),
+      recoveryEmail: normalizeEmail(String(metadata.recovery_email ?? user.email ?? '')),
+    })
+
+    await supabase.from('profiles').upsert(profilePayload, { onConflict: 'user_id' })
   }
 
   return NextResponse.redirect(buildRedirectUrl(request, resolvedNextPath))

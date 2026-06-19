@@ -46,10 +46,6 @@ export default function CreatePostPage() {
   const router = useRouter()
 
   const handleSubmit = async (formData: PostFormSubmitData) => {
-    if (formData.newImages.length === 0) {
-      return { error: 'Selecciona al menos una imagen para la publicacion.' }
-    }
-
     if (formData.newImages.some(({ file }) => file.size > MAX_IMAGE_SIZE_BYTES)) {
       return { error: 'Cada imagen debe pesar como maximo 2.5MB.' }
     }
@@ -155,7 +151,7 @@ export default function CreatePostPage() {
           whatsapp_number: formData.whatsappNumber,
           location_department: formData.locationDepartment,
           location_maps_url: formData.locationMapsUrl,
-          image_url: primaryImage.publicUrl,
+          image_url: primaryImage?.publicUrl ?? null,
           condition: formData.condition ?? null,
         })
         .select('id')
@@ -173,7 +169,7 @@ export default function CreatePostPage() {
             whatsapp_number: formData.whatsappNumber,
             location_department: formData.locationDepartment,
             location_maps_url: formData.locationMapsUrl,
-            image_url: primaryImage.publicUrl,
+            image_url: primaryImage?.publicUrl ?? null,
             condition: formData.condition ?? null,
           })
           .select('id')

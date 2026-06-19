@@ -1,0 +1,54 @@
+Confirmadas
+
+- Vehiculos --> Autos
+- Vehiculos --> Camiones
+- Vehiculos --> Camionetas, Utilitarios, SUV
+- Vehiculos --> Motos, Cuatriciclos
+- Vehiculos --> Nautica
+- Vehiculos --> Otros vehiculos
+- Vehiculos --> Planes de Ahorro
+
+- Inmuebles --> Casas
+- Inmuebles --> Cocheras
+- Inmuebles --> Departamentos
+- Inmuebles --> Fincas, Campos, Quintas
+- Inmuebles --> Galpones
+- Inmuebles --> Locales, Salones, Oficinas, Consultorios
+- Inmuebles --> Negocios, Industrias
+- Inmuebles --> Parcelas, Nichos
+- Inmuebles --> Terrenos, Lotes
+- Inmuebles --> Transferencias, Carpetas
+
+- Servicios --> Cursos y Capacitaciones 
+- Servicios --> Belleza y Cuidado personal
+- Servicios --> Empleos
+- Servicios --> Fiestas y Eventos
+- Servicios --> Diseño e Impresiones
+- Servicios --> Mantenimiento de Vehiculos
+- Servicios --> Mantenimiento del Hogar
+- Servicios --> Otros Servicios
+- Servicios --> Profesionales
+- Servicios --> Servicio Tecnico
+- Servicios --> Traslados y Fletes
+- Servicios --> Viajes y Turismo
+
+
+- Articulos --> Electronica y tecnologia --> Celulares
+- Articulos --> Electronica y tecnologia --> Audio y video
+- Articulos --> Electrodomesticos 
+- Articulos --> Hogar y muebles --> Cocina y Bazar
+- Articulos --> Hogar y muebles --> Estar y comedor
+- Articulos --> Hogar y muebles --> Jardines y Exteriores
+- Articulos --> Hogar y muebles --> Muebles
+- Articulos --> Construccion
+- Articulos --> Vehiculos, Repuestos y Accesorios 
+- Articulos --> Deportes y Aire libre 
+- Articulos --> Industria y Oficina
+- Articulos --> Relojes y Joyas
+- Articulos --> Bebés y Niños
+- Articulos --> Juegos y Juguetes
+- Articulos --> Libros, Revistas y Comics 
+- Articulos --> Indumentaria y Accesorios
+- Articulos --> Otros
+- Articulos --> Animales y Mascotas
+- Articulos --> Cotillón y Fiestas

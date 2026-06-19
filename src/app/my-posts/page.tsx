@@ -19,6 +19,7 @@ type Post = {
   price: number
   category: string
   subcategory: string | null
+  tertiarySubcategory?: string | null
   image_url: string | null
   created_at: string
 }
@@ -162,7 +163,7 @@ export default function MyPostsPage() {
                 id={post.id}
                 title={post.title}
                 description={post.description}
-                category={getCategoryPathLabel(post.category, post.subcategory)}
+                category={getCategoryPathLabel(post.category, post.subcategory, post.tertiarySubcategory)}
                 price={post.price}
                 imageUrl={post.image_url}
                 href={`/post/${post.id}`}

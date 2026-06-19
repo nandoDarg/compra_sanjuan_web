@@ -41,11 +41,11 @@ export default function ActiveFilterChips({
         <button
           type="button"
           onClick={onRemoveSearch}
-          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-[var(--line-strong)]"
+          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-(--line-strong)"
         >
-          <span className="text-[var(--foreground-muted)]">Busqueda:</span>
+          <span className="text-(--foreground-muted)">Busqueda:</span>
           <span className="max-w-36 truncate">{searchQuery}</span>
-          <span className="text-[var(--foreground-muted)]">✕</span>
+          <span className="text-(--foreground-muted)">✕</span>
         </button>
       ) : null}
 
@@ -53,11 +53,11 @@ export default function ActiveFilterChips({
         <button
           type="button"
           onClick={onRemoveCategory}
-          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-[var(--line-strong)]"
+          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-(--line-strong)"
         >
-          <span className="text-[var(--foreground-muted)]">Categoria:</span>
+          <span className="text-(--foreground-muted)">Categoria:</span>
           <span>{selectedCategory}</span>
-          <span className="text-[var(--foreground-muted)]">✕</span>
+          <span className="text-(--foreground-muted)">✕</span>
         </button>
       ) : null}
 
@@ -65,11 +65,11 @@ export default function ActiveFilterChips({
         <button
           type="button"
           onClick={onRemoveSubcategory}
-          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-[var(--line-strong)]"
+          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-(--line-strong)"
         >
-          <span className="text-[var(--foreground-muted)]">Subcategoria:</span>
+          <span className="text-(--foreground-muted)">Subcategoria:</span>
           <span>{selectedSubcategory}</span>
-          <span className="text-[var(--foreground-muted)]">✕</span>
+          <span className="text-(--foreground-muted)">✕</span>
         </button>
       ) : null}
 
@@ -77,11 +77,11 @@ export default function ActiveFilterChips({
         <button
           type="button"
           onClick={onRemoveSort}
-          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-[var(--line-strong)]"
+          className="thsj-chip inline-flex items-center gap-2 px-3 py-1.5 text-xs font-medium transition hover:border-(--line-strong)"
         >
-          <span className="text-[var(--foreground-muted)]">Orden:</span>
+          <span className="text-(--foreground-muted)">Orden:</span>
           <span>{sortLabels[sortBy as Exclude<SortOption, 'recent'>]}</span>
-          <span className="text-[var(--foreground-muted)]">✕</span>
+          <span className="text-(--foreground-muted)">✕</span>
         </button>
       ) : null}
     </div>

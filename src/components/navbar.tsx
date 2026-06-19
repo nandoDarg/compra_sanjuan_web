@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -20,7 +21,11 @@ export default function Navbar() {
   const menuContainerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
-    setSearchDraft(queryFromUrl)
+    const timer = window.setTimeout(() => {
+      setSearchDraft(queryFromUrl)
+    }, 0)
+
+    return () => window.clearTimeout(timer)
   }, [queryFromUrl])
 
   useEffect(() => {
@@ -96,11 +101,11 @@ export default function Navbar() {
     [executeSearch]
   )
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
     await supabase.auth.signOut()
     setIsMenuOpen(false)
     router.push('/')
-  }
+  }, [router, supabase])
 
   const desktopActions = useMemo(() => {
     if (loading && !isAuthRoute) {
@@ -152,9 +157,14 @@ export default function Navbar() {
         </Link>
         <Link
           href="/settings"
-          className="thsj-btn thsj-btn-ghost"
+          className="thsj-btn thsj-btn-ghost inline-flex items-center gap-2"
+          aria-label="Abrir panel de usuario"
         >
-          Configuracion
+          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M20 21a8 8 0 1 0-16 0" />
+            <circle cx="12" cy="8" r="4" />
+          </svg>
+          Cuenta
         </Link>
 
         <button
@@ -171,11 +181,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-xl">
       <div className="mx-auto flex w-full max-w-7xl items-center gap-2 px-3 py-3.5 md:hidden">
         <Link href="/" className="shrink-0">
-          <img
-            src="/icon.svg"
-            alt="tratohechoSJ"
-            className="h-[3.1rem] w-[3.1rem]"
-          />
+          <Image src="/icon.svg" alt="tratohechoSJ" width={50} height={50} className="h-[3.1rem] w-[3.1rem]" priority />
         </Link>
 
         <label className="relative min-w-0 flex-1">
@@ -195,11 +201,24 @@ export default function Navbar() {
           className="thsj-btn thsj-btn-ghost flex h-[3.1rem] w-[3.1rem] shrink-0 items-center justify-center p-0"
           aria-label="Ejecutar busqueda"
         >
-          <svg viewBox="0 0 24 24" className="h-[2.25rem] w-[2.25rem]" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
             <circle cx="11" cy="11" r="7" />
             <line x1="21" y1="21" x2="16.65" y2="16.65" />
           </svg>
         </button>
+
+        {user ? (
+          <Link
+            href="/settings"
+            className="thsj-btn thsj-btn-ghost flex h-[3.1rem] w-[3.1rem] shrink-0 items-center justify-center p-0"
+            aria-label="Abrir panel de usuario"
+          >
+            <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M20 21a8 8 0 1 0-16 0" />
+              <circle cx="12" cy="8" r="4" />
+            </svg>
+          </Link>
+        ) : null}
 
         <div className="relative shrink-0" ref={menuContainerRef}>
           <button
@@ -210,7 +229,7 @@ export default function Navbar() {
             aria-haspopup="menu"
             aria-expanded={isMenuOpen}
           >
-            <svg viewBox="0 0 24 24" className="h-[2.25rem] w-[2.25rem]" fill="currentColor" aria-hidden="true">
+            <svg viewBox="0 0 24 24" className="h-9 w-9" fill="currentColor" aria-hidden="true">
               <circle cx="12" cy="6" r="2.35" />
               <circle cx="12" cy="12" r="2.35" />
               <circle cx="12" cy="18" r="2.35" />
@@ -273,10 +292,13 @@ export default function Navbar() {
 
       <div className="mx-auto hidden w-full max-w-7xl items-center gap-3 px-4 py-4 md:flex md:px-6 lg:px-8">
         <Link href="/" className="group flex items-center">
-          <img
+          <Image
             src="/logo-navbar.svg"
             alt="tratohechoSJ"
+            width={384}
+            height={96}
             className="h-24 w-auto min-w-64 max-w-96 transition group-hover:opacity-95"
+            priority
           />
         </Link>
 
