@@ -23,7 +23,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "tratohechoSJ | Marketplace local de San Juan",
+  title: "tratohechoSJ | Publicá, comprá y vendé fácil en San Juan",
   description: "Marketplace local para comprar y vender en San Juan.",
   icons: {
     icon: [
