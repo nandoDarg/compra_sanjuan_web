@@ -1,5 +1,5 @@
-import SettingsPanel from './settings-panel'
+import { redirect } from 'next/navigation'
 
 export default function SettingsPage() {
-  return <SettingsPanel />
+  redirect('/configuracion')
 }

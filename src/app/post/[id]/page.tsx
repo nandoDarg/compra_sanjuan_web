@@ -2,7 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element */
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useRef, useState, type MouseEvent } from 'react'
 import PostCard from '@/components/post-card'
 import { useAuth } from '@/components/auth-provider'
@@ -15,6 +15,7 @@ import { resolveCategorySelection } from '@/lib/hierarchical-categories'
 import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
 import type { VehicleDetailsInput } from '@/lib/vehicle-details'
 import { isValidGoogleMapsUrl } from '@/lib/post-location'
+import { fetchFavoritePostIds, toggleFavorite } from '@/lib/favorites'
 
 type Post = {
   id: string
@@ -65,6 +66,7 @@ export default function PostDetailPage() {
   const params = useParams<{ id: string }>()
   const postId = params.id
   const supabase = useMemo(() => createClient(), [])
+  const router = useRouter()
   const { user } = useAuth()
 
   const [post, setPost] = useState<Post | null>(null)
@@ -76,6 +78,9 @@ export default function PostDetailPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [shareFeedback, setShareFeedback] = useState<string | null>(null)
   const [sellerDisplayName, setSellerDisplayName] = useState('Usuario')
+  const [isFavorite, setIsFavorite] = useState(false)
+  const [favoritePending, setFavoritePending] = useState(false)
+  const [favoriteError, setFavoriteError] = useState<string | null>(null)
   const [isZoomModalOpen, setIsZoomModalOpen] = useState(false)
   const [modalImageZoom, setModalImageZoom] = useState(1)
   const [modalZoomOrigin, setModalZoomOrigin] = useState('50% 50%')
@@ -226,6 +231,26 @@ export default function PostDetailPage() {
   }, [post])
 
   useEffect(() => {
+    if (!user || !post?.id) {
+      setIsFavorite(false)
+      setFavoritePending(false)
+      setFavoriteError(null)
+      return
+    }
+
+    const loadFavoriteState = async () => {
+      try {
+        const ids = await fetchFavoritePostIds(user.id, [post.id])
+        setIsFavorite(ids.includes(post.id))
+      } catch {
+        setIsFavorite(false)
+      }
+    }
+
+    void loadFavoriteState()
+  }, [post?.id, user])
+
+  useEffect(() => {
     if (!isZoomModalOpen) {
       return
     }
@@ -248,6 +273,37 @@ export default function PostDetailPage() {
       window.removeEventListener('keydown', handleEscape)
     }
   }, [isZoomModalOpen])
+
+  const handleFavoriteToggle = async () => {
+    if (!post) {
+      return
+    }
+
+    if (!user) {
+      router.push(`/login?next=${encodeURIComponent(`/post/${post.id}`)}`)
+      return
+    }
+
+    setFavoriteError(null)
+    setFavoritePending(true)
+
+    const previous = isFavorite
+    const next = !previous
+    setIsFavorite(next)
+
+    try {
+      await toggleFavorite({
+        userId: user.id,
+        postId: post.id,
+        currentlyFavorite: previous,
+      })
+    } catch {
+      setIsFavorite(previous)
+      setFavoriteError('No se pudo guardar favorito.')
+    } finally {
+      setFavoritePending(false)
+    }
+  }
 
   const handleShare = async () => {
     if (!post) {
@@ -432,6 +488,23 @@ export default function PostDetailPage() {
 
               <button
                 type="button"
+                onClick={handleFavoriteToggle}
+                disabled={favoritePending}
+                className={[
+                  'absolute left-3 top-3 inline-flex h-9 min-w-9 items-center justify-center rounded-full border px-2 text-base shadow-sm transition',
+                  isFavorite
+                    ? 'border-(--brand-secondary) bg-(--brand-secondary) text-white'
+                    : 'border-white/80 bg-white/95 text-(--brand-primary)',
+                  favoritePending ? 'cursor-not-allowed opacity-70' : 'hover:scale-105',
+                ].join(' ')}
+                aria-label={isFavorite ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+                title={user ? (isFavorite ? 'Quitar de favoritos' : 'Guardar en favoritos') : 'Inicia sesion para guardar favoritos'}
+              >
+                {isFavorite ? '♥' : '♡'}
+              </button>
+
+              <button
+                type="button"
                 onClick={() => {
                   setIsZoomModalOpen(true)
                   setModalImageZoom(1)
@@ -613,6 +686,12 @@ export default function PostDetailPage() {
               <p className="mt-1 font-medium text-foreground">{sellerDisplayName || 'Usuario'}</p>
             </div>
           </div>
+
+          {favoriteError ? (
+            <p className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-(--danger)">
+              {favoriteError}
+            </p>
+          ) : null}
 
           <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
             {isOwner ? (

@@ -12,6 +12,7 @@ type PostCardProps = {
   href?: string
   publishedAt?: string
   actions?: ReactNode
+  imageOverlay?: ReactNode
   onOpen?: () => void
 }
 
@@ -23,6 +24,7 @@ export default function PostCard({
   imageUrl,
   href,
   actions,
+  imageOverlay,
   onOpen,
 }: PostCardProps) {
   const formattedPrice = new Intl.NumberFormat('es-AR', {
@@ -40,10 +42,12 @@ export default function PostCard({
             alt={title}
             className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
           />
+          {imageOverlay ? <div className="absolute right-2 top-2 z-10">{imageOverlay}</div> : null}
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/25 to-transparent" />
         </div>
       ) : (
-        <div className="flex aspect-square items-center justify-center bg-[var(--background-muted)] text-xs text-[var(--foreground-muted)]">
+        <div className="relative flex aspect-square items-center justify-center bg-[var(--background-muted)] text-xs text-[var(--foreground-muted)]">
+          {imageOverlay ? <div className="absolute right-2 top-2 z-10">{imageOverlay}</div> : null}
           Sin imagen
         </div>
       )}

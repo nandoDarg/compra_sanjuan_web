@@ -1,11 +1,13 @@
 'use client'
 
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import PostForm, { type PostFormSubmitData } from '@/components/post-form'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
 import { isVehicleCategory } from '@/lib/vehicle-details'
 import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
+import { resolveSanJuanDepartment } from '@/lib/san-juan-departments'
 
 const MAX_IMAGE_SIZE_BYTES = Math.round(2.5 * 1024 * 1024)
 
@@ -42,8 +44,37 @@ function getPublishFriendlyError(type: 'publish' | 'images') {
 }
 
 export default function CreatePostPage() {
-  const supabase = createClient()
+  const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
+  const [profileLocality, setProfileLocality] = useState<string | null>(null)
+
+  useEffect(() => {
+    const loadProfileLocality = async () => {
+      const {
+        data: { user },
+        error: userError,
+      } = await supabase.auth.getUser()
+
+      if (userError || !user) {
+        return
+      }
+
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('locality')
+        .eq('user_id', user.id)
+        .maybeSingle<{ locality: string | null }>()
+
+      if (profileError) {
+        return
+      }
+
+      const resolvedLocality = resolveSanJuanDepartment(profileData?.locality)
+      setProfileLocality(resolvedLocality || null)
+    }
+
+    void loadProfileLocality()
+  }, [supabase])
 
   const handleSubmit = async (formData: PostFormSubmitData) => {
     if (formData.newImages.some(({ file }) => file.size > MAX_IMAGE_SIZE_BYTES)) {
@@ -291,6 +322,24 @@ export default function CreatePostPage() {
       submitLabel="Publicar"
       draftStorageKey="thsj:draft:create-post"
       cancelHref="/"
+      initialValues={
+        profileLocality
+          ? {
+              title: '',
+              description: '',
+              price: 0,
+              category: '',
+              subcategory: '',
+              whatsappNumber: null,
+              imageUrl: null,
+              locationDepartment: profileLocality,
+              locationMapsUrl: null,
+              existingImageUrls: [],
+              vehicleDetails: null,
+              condition: null,
+            }
+          : undefined
+      }
       onSubmit={handleSubmit}
     />
   )

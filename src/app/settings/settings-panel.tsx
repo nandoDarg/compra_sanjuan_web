@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/components/auth-provider'
 import { createClient } from '@/lib/supabase-client'
 import {
@@ -43,6 +43,7 @@ function clearLocalAccountState() {
 export default function SettingsPanel() {
   const supabase = useMemo(() => createClient(), [])
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { user, loading } = useAuth()
 
   const [fullName, setFullName] = useState('')
@@ -51,16 +52,21 @@ export default function SettingsPanel() {
   const [accountEmail, setAccountEmail] = useState('')
   const [recoveryEmail, setRecoveryEmail] = useState('')
   const [newPassword, setNewPassword] = useState('')
+  const [currentPassword, setCurrentPassword] = useState('')
+  const [changePassword, setChangePassword] = useState('')
+  const [repeatChangePassword, setRepeatChangePassword] = useState('')
   const [profileLoading, setProfileLoading] = useState(true)
   const [isSaving, setIsSaving] = useState(false)
+  const [isChangingPassword, setIsChangingPassword] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [confirmationText, setConfirmationText] = useState('')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [successMsg, setSuccessMsg] = useState<string | null>(null)
 
+  const activeSection = searchParams.get('section')
+
   useEffect(() => {
     if (!user) {
-      setProfileLoading(false)
       return
     }
 
@@ -89,6 +95,21 @@ export default function SettingsPanel() {
 
     void loadProfile()
   }, [supabase, user])
+
+  useEffect(() => {
+    if (!activeSection || typeof window === 'undefined') {
+      return
+    }
+
+    const target = document.getElementById(activeSection)
+    if (!target) {
+      return
+    }
+
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    })
+  }, [activeSection])
 
   const handleSaveProfile = async () => {
     if (!user) {
@@ -201,6 +222,81 @@ export default function SettingsPanel() {
       setErrorMsg('No se pudieron guardar los cambios.')
     } finally {
       setIsSaving(false)
+    }
+  }
+
+  const handleChangePassword = async () => {
+    if (!user) {
+      setErrorMsg('Necesitas una sesion activa para cambiar la contraseña.')
+      return
+    }
+
+    if (!currentPassword.trim()) {
+      setErrorMsg('Ingresa tu contraseña actual.')
+      return
+    }
+
+    const nextPassword = changePassword.trim()
+    const repeatPassword = repeatChangePassword.trim()
+
+    if (nextPassword.length < 6) {
+      setErrorMsg('La nueva contraseña debe tener al menos 6 caracteres.')
+      return
+    }
+
+    if (nextPassword !== repeatPassword) {
+      setErrorMsg('La nueva contraseña y su repeticion no coinciden.')
+      return
+    }
+
+    if (nextPassword === currentPassword.trim()) {
+      setErrorMsg('La nueva contraseña debe ser distinta a la actual.')
+      return
+    }
+
+    setIsChangingPassword(true)
+    setErrorMsg(null)
+    setSuccessMsg('Actualizando contraseña...')
+
+    try {
+      const currentEmail = normalizeEmail(user.email ?? accountEmail)
+      if (!currentEmail) {
+        setSuccessMsg(null)
+        setErrorMsg('No se encontro un email principal para validar la contraseña actual.')
+        setIsChangingPassword(false)
+        return
+      }
+
+      const { error: verifyError } = await supabase.auth.signInWithPassword({
+        email: currentEmail,
+        password: currentPassword.trim(),
+      })
+
+      if (verifyError) {
+        setSuccessMsg(null)
+        setErrorMsg('La contraseña actual no es valida.')
+        setIsChangingPassword(false)
+        return
+      }
+
+      const { error } = await supabase.auth.updateUser({ password: nextPassword })
+
+      if (error) {
+        setSuccessMsg(null)
+        setErrorMsg(error.message)
+        setIsChangingPassword(false)
+        return
+      }
+
+      setCurrentPassword('')
+      setChangePassword('')
+      setRepeatChangePassword('')
+      setSuccessMsg('Contrasena actualizada correctamente.')
+    } catch {
+      setSuccessMsg(null)
+      setErrorMsg('No se pudo actualizar la contraseña.')
+    } finally {
+      setIsChangingPassword(false)
     }
   }
 
@@ -345,7 +441,13 @@ export default function SettingsPanel() {
           </div>
         </div>
 
-        <div className="thsj-panel p-5 sm:p-6">
+        <div
+          id="acceso"
+          className={[
+            'thsj-panel p-5 sm:p-6',
+            activeSection === 'acceso' ? 'ring-2 ring-(--brand-secondary)' : '',
+          ].join(' ')}
+        >
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-(--foreground-muted)">
             Seguridad
           </p>
@@ -406,7 +508,80 @@ export default function SettingsPanel() {
         </div>
       </div>
 
-      <aside className="thsj-panel border border-[#f0b8b6] bg-[#fff7f6] p-5 sm:p-6">
+      <section
+        id="cambiar-password"
+        className={[
+          'thsj-panel p-5 sm:p-6',
+          activeSection === 'cambiar-password' ? 'ring-2 ring-(--brand-secondary)' : '',
+        ].join(' ')}
+      >
+        <p className="text-xs font-semibold uppercase tracking-[0.16em] text-(--foreground-muted)">
+          Seguridad
+        </p>
+        <h2 className="mt-2 text-xl font-bold text-foreground">Cambiar contraseña</h2>
+        <p className="mt-2 text-sm text-(--foreground-muted)">
+          Ingresa tu contraseña actual y define una nueva contraseña segura.
+        </p>
+
+        <div className="mt-5 grid gap-4 sm:grid-cols-2">
+          <label className="flex flex-col gap-1.5 sm:col-span-2">
+            <span className="text-sm font-medium text-foreground">Contraseña actual</span>
+            <input
+              className="thsj-input px-3 py-2.5"
+              type="password"
+              value={currentPassword}
+              onChange={(event) => setCurrentPassword(event.target.value)}
+              placeholder="Tu contraseña actual"
+              required
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-foreground">Nueva contraseña</span>
+            <input
+              className="thsj-input px-3 py-2.5"
+              type="password"
+              value={changePassword}
+              onChange={(event) => setChangePassword(event.target.value)}
+              placeholder="Nueva contraseña"
+              minLength={6}
+              required
+            />
+          </label>
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-foreground">Repetir nueva contraseña</span>
+            <input
+              className="thsj-input px-3 py-2.5"
+              type="password"
+              value={repeatChangePassword}
+              onChange={(event) => setRepeatChangePassword(event.target.value)}
+              placeholder="Repeti la nueva contraseña"
+              minLength={6}
+              required
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 flex justify-end">
+          <button
+            type="button"
+            onClick={handleChangePassword}
+            disabled={isChangingPassword || loading}
+            className="thsj-btn thsj-btn-primary disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isChangingPassword ? 'Actualizando...' : 'Cambiar contraseña'}
+          </button>
+        </div>
+      </section>
+
+      <aside
+        id="eliminar-cuenta"
+        className={[
+          'thsj-panel border border-[#f0b8b6] bg-[#fff7f6] p-5 sm:p-6',
+          activeSection === 'eliminar-cuenta' ? 'ring-2 ring-(--danger)' : '',
+        ].join(' ')}
+      >
         <p className="text-xs font-semibold uppercase tracking-[0.16em] text-(--danger)">
           Zona de peligro
         </p>

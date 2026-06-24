@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase-client'
 import PostCard from '@/components/post-card'
+import { useAuth } from '@/components/auth-provider'
 import FeedSkeleton from '@/components/ui/feed-skeleton'
 import EmptyState from '@/components/ui/empty-state'
 import CategoryFilter from '@/components/ui/category-filter'
@@ -17,6 +18,7 @@ import {
 } from '@/lib/hierarchical-categories'
 import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
 import { expandSearchQuery, buildSupabaseOrFilter } from '@/lib/search/expand-query'
+import { buildFavoritesMap, fetchFavoritePostIds, toggleFavorite } from '@/lib/favorites'
 
 type Post = {
   id: string
@@ -217,6 +219,7 @@ function HomeContent() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const supabase = useMemo(() => createClient(), [])
+  const { user } = useAuth()
   const searchQuery = useMemo(
     () => (searchParams.get('q') ?? '').trim(),
     [searchParams]
@@ -231,6 +234,9 @@ function HomeContent() {
   )
   const [posts, setPosts] = useState<Post[]>([])
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([])
+  const [favoriteMap, setFavoriteMap] = useState<Record<string, true>>({})
+  const [favoritePendingMap, setFavoritePendingMap] = useState<Record<string, true>>({})
+  const [favoriteErrorMap, setFavoriteErrorMap] = useState<Record<string, string>>({})
   const [loading, setLoading] = useState(true)
   const [feedError, setFeedError] = useState<string | null>(null)
   const [sortBy, setSortBy] = useState<SortOption>('recent')
@@ -731,10 +737,95 @@ function HomeContent() {
 
   const desktopCategories = categoryStats
 
+  useEffect(() => {
+    if (!user || posts.length === 0) {
+      setFavoriteMap({})
+      setFavoritePendingMap({})
+      setFavoriteErrorMap({})
+      return
+    }
+
+    const postIds = posts.map((post) => post.id)
+
+    const loadFavorites = async () => {
+      try {
+        const favoritePostIds = await fetchFavoritePostIds(user.id, postIds)
+        setFavoriteMap(buildFavoritesMap(favoritePostIds))
+      } catch {
+        setFavoriteMap({})
+      }
+    }
+
+    void loadFavorites()
+  }, [posts, user])
+
   const clearFilters = () => {
     setSortBy('recent')
     router.replace(pathname)
   }
+
+  const navigateToLogin = useCallback(() => {
+    const currentQuery = searchParams.toString()
+    const currentPath = currentQuery ? `${pathname}?${currentQuery}` : pathname
+    router.push(`/login?next=${encodeURIComponent(currentPath)}`)
+  }, [pathname, router, searchParams])
+
+  const handleToggleFavorite = useCallback(
+    async (postId: string) => {
+      if (!user) {
+        navigateToLogin()
+        return
+      }
+
+      const currentlyFavorite = Boolean(favoriteMap[postId])
+
+      setFavoriteErrorMap((previous) => {
+        const next = { ...previous }
+        delete next[postId]
+        return next
+      })
+
+      setFavoritePendingMap((previous) => ({ ...previous, [postId]: true }))
+      setFavoriteMap((previous) => {
+        const next = { ...previous }
+        if (currentlyFavorite) {
+          delete next[postId]
+        } else {
+          next[postId] = true
+        }
+        return next
+      })
+
+      try {
+        await toggleFavorite({
+          userId: user.id,
+          postId,
+          currentlyFavorite,
+        })
+      } catch {
+        setFavoriteMap((previous) => {
+          const next = { ...previous }
+          if (currentlyFavorite) {
+            next[postId] = true
+          } else {
+            delete next[postId]
+          }
+          return next
+        })
+        setFavoriteErrorMap((previous) => ({
+          ...previous,
+          [postId]: 'No se pudo guardar favorito.',
+        }))
+      } finally {
+        setFavoritePendingMap((previous) => {
+          const next = { ...previous }
+          delete next[postId]
+          return next
+        })
+      }
+    },
+    [favoriteMap, navigateToLogin, user]
+  )
 
   return (
     <section className="flex w-full flex-1 flex-col gap-4 py-4 sm:gap-5 sm:py-5 lg:grid lg:grid-cols-[minmax(260px,max-content)_minmax(0,1fr)] lg:items-start lg:gap-6">
@@ -876,21 +967,54 @@ function HomeContent() {
         />
       ) : (
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4">
-          {posts.map((post) => (
-            <PostCard
-              key={post.id}
-              id={post.id}
-              title={post.title}
-              description={post.description}
-              category={getCategoryPathLabel(post.category, post.subcategory, post.tertiarySubcategory)}
-              locationDepartment={post.location_department}
-              price={post.price}
-              imageUrl={post.image_url}
-              href={`/post/${post.id}`}
-              publishedAt={post.created_at}
-              onOpen={() => registerPostInteraction(post)}
-            />
-          ))}
+          {posts.map((post) => {
+            const isFavorite = Boolean(favoriteMap[post.id])
+            const isFavoritePending = Boolean(favoritePendingMap[post.id])
+            const favoriteError = favoriteErrorMap[post.id]
+
+            return (
+              <PostCard
+                key={post.id}
+                id={post.id}
+                title={post.title}
+                description={post.description}
+                category={getCategoryPathLabel(post.category, post.subcategory, post.tertiarySubcategory)}
+                locationDepartment={post.location_department}
+                price={post.price}
+                imageUrl={post.image_url}
+                href={`/post/${post.id}`}
+                publishedAt={post.created_at}
+                onOpen={() => registerPostInteraction(post)}
+                imageOverlay={
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.preventDefault()
+                      event.stopPropagation()
+                      void handleToggleFavorite(post.id)
+                    }}
+                    disabled={isFavoritePending}
+                    className={[
+                      'inline-flex h-9 min-w-9 items-center justify-center rounded-full border px-2 text-base shadow-sm transition',
+                      isFavorite
+                        ? 'border-(--brand-secondary) bg-(--brand-secondary) text-white'
+                        : 'border-white/80 bg-white/95 text-(--brand-primary)',
+                      isFavoritePending ? 'cursor-not-allowed opacity-70' : 'hover:scale-105',
+                    ].join(' ')}
+                    aria-label={isFavorite ? 'Quitar de favoritos' : 'Guardar en favoritos'}
+                    title={user ? (isFavorite ? 'Quitar de favoritos' : 'Guardar en favoritos') : 'Inicia sesion para guardar favoritos'}
+                  >
+                    {isFavorite ? '♥' : '♡'}
+                  </button>
+                }
+                actions={
+                  favoriteError ? (
+                    <p className="w-full text-xs font-medium text-(--danger)">{favoriteError}</p>
+                  ) : undefined
+                }
+              />
+            )
+          })}
         </div>
       )}
       </div>

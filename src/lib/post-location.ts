@@ -1,24 +1,4 @@
-export const SAN_JUAN_DEPARTMENTS = [
-  'Capital',
-  'Rawson',
-  'Rivadavia',
-  'Chimbas',
-  'Santa Lucia',
-  'Pocito',
-  'Caucete',
-  'Albardon',
-  'San Martin',
-  'Angaco',
-  '9 de Julio',
-  '25 de Mayo',
-  'Sarmiento',
-  'Ullum',
-  'Zonda',
-  'Jachal',
-  'Iglesia',
-  'Calingasta',
-  'Valle Fertil',
-] as const
+export { SAN_JUAN_DEPARTMENTS, resolveSanJuanDepartment } from '@/lib/san-juan-departments'
 
 const MAPS_ALLOWED_HOSTS = new Set([
   'maps.google.com',

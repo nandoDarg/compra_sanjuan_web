@@ -18,7 +18,9 @@ export default function Navbar() {
   const queryFromUrl = searchParams.get('q') ?? ''
   const [searchDraft, setSearchDraft] = useState(queryFromUrl)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [isAccountOpen, setIsAccountOpen] = useState(false)
   const menuContainerRef = useRef<HTMLDivElement | null>(null)
+  const accountContainerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -29,24 +31,29 @@ export default function Navbar() {
   }, [queryFromUrl])
 
   useEffect(() => {
-    if (!isMenuOpen) {
+    if (!isMenuOpen && !isAccountOpen) {
       return
     }
 
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
-      if (!menuContainerRef.current) {
+      const target = event.target
+      if (!(target instanceof Node)) {
         return
       }
 
-      const target = event.target
-      if (target instanceof Node && !menuContainerRef.current.contains(target)) {
+      if (isMenuOpen && menuContainerRef.current && !menuContainerRef.current.contains(target)) {
         setIsMenuOpen(false)
+      }
+
+      if (isAccountOpen && accountContainerRef.current && !accountContainerRef.current.contains(target)) {
+        setIsAccountOpen(false)
       }
     }
 
     const handleEscape = (event: KeyboardEvent) => {
       if (event.key === 'Escape') {
         setIsMenuOpen(false)
+        setIsAccountOpen(false)
       }
     }
 
@@ -59,7 +66,7 @@ export default function Navbar() {
       document.removeEventListener('touchstart', handlePointerDown)
       document.removeEventListener('keydown', handleEscape)
     }
-  }, [isMenuOpen])
+  }, [isAccountOpen, isMenuOpen])
 
   const updateFeedQuery = useCallback(
     (nextValue: string) => {
@@ -104,8 +111,13 @@ export default function Navbar() {
   const logout = useCallback(async () => {
     await supabase.auth.signOut()
     setIsMenuOpen(false)
+    setIsAccountOpen(false)
     router.push('/')
   }, [router, supabase])
+
+  const closeAccountDropdown = useCallback(() => {
+    setIsAccountOpen(false)
+  }, [])
 
   const desktopActions = useMemo(() => {
     if (loading && !isAuthRoute) {
@@ -149,33 +161,72 @@ export default function Navbar() {
         >
           Publicar
         </Link>
-        <Link
-          href="/my-posts"
-          className="thsj-btn thsj-btn-ghost"
-        >
-          Mis publicaciones
-        </Link>
-        <Link
-          href="/settings"
-          className="thsj-btn thsj-btn-ghost inline-flex items-center gap-2"
-          aria-label="Abrir panel de usuario"
-        >
-          <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-            <path d="M20 21a8 8 0 1 0-16 0" />
-            <circle cx="12" cy="8" r="4" />
-          </svg>
-          Cuenta
-        </Link>
+        <div className="relative" ref={accountContainerRef}>
+          <button
+            type="button"
+            onClick={() => {
+              setIsAccountOpen((open) => !open)
+              setIsMenuOpen(false)
+            }}
+            className="thsj-btn thsj-btn-ghost inline-flex items-center gap-2"
+            aria-label="Abrir menu de cuenta"
+            aria-haspopup="menu"
+            aria-expanded={isAccountOpen}
+          >
+            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+              <path d="M20 21a8 8 0 1 0-16 0" />
+              <circle cx="12" cy="8" r="4" />
+            </svg>
+            Cuenta
+          </button>
 
-        <button
-          onClick={logout}
-          className="thsj-btn thsj-btn-ghost"
-        >
-          Logout
-        </button>
+          {isAccountOpen ? (
+            <div className="thsj-panel absolute right-0 top-12 z-40 w-60 rounded-xl border border-(--line) p-1.5 shadow-[0_12px_30px_rgba(16,32,51,0.18)]" role="menu">
+              <Link
+                href="/configuracion"
+                onClick={closeAccountDropdown}
+                className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-(--background-muted)"
+                role="menuitem"
+              >
+                Configuracion y seguridad
+              </Link>
+
+              <div className="my-1 border-t border-(--line)" />
+
+              <Link
+                href="/favoritos"
+                onClick={closeAccountDropdown}
+                className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-(--background-muted)"
+                role="menuitem"
+              >
+                Favoritos
+              </Link>
+
+              <Link
+                href="/my-posts"
+                onClick={closeAccountDropdown}
+                className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-(--background-muted)"
+                role="menuitem"
+              >
+                Mis publicaciones
+              </Link>
+
+              <div className="my-1 border-t border-(--line)" />
+
+              <button
+                type="button"
+                onClick={logout}
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-(--danger) hover:bg-red-50"
+                role="menuitem"
+              >
+                Cerrar sesion
+              </button>
+            </div>
+          ) : null}
+        </div>
       </>
     )
-  }, [isAuthRoute, loading, logout, user])
+  }, [closeAccountDropdown, isAuthRoute, isAccountOpen, loading, logout, user])
 
   return (
     <nav className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-xl">
@@ -208,22 +259,77 @@ export default function Navbar() {
         </button>
 
         {user ? (
-          <Link
-            href="/settings"
-            className="thsj-btn thsj-btn-ghost flex h-[3.1rem] w-[3.1rem] shrink-0 items-center justify-center p-0"
-            aria-label="Abrir panel de usuario"
-          >
-            <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-              <path d="M20 21a8 8 0 1 0-16 0" />
-              <circle cx="12" cy="8" r="4" />
-            </svg>
-          </Link>
+          <div className="relative shrink-0" ref={accountContainerRef}>
+            <button
+              type="button"
+              onClick={() => {
+                setIsAccountOpen((open) => !open)
+                setIsMenuOpen(false)
+              }}
+              className="thsj-btn thsj-btn-ghost flex h-[3.1rem] w-[3.1rem] items-center justify-center p-0"
+              aria-label="Abrir menu de cuenta"
+              aria-haspopup="menu"
+              aria-expanded={isAccountOpen}
+            >
+              <svg viewBox="0 0 24 24" className="h-9 w-9" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M20 21a8 8 0 1 0-16 0" />
+                <circle cx="12" cy="8" r="4" />
+              </svg>
+            </button>
+
+            {isAccountOpen ? (
+              <div className="thsj-panel absolute right-0 top-12 z-40 w-60 rounded-xl border border-(--line) p-1.5 shadow-[0_12px_30px_rgba(16,32,51,0.18)]" role="menu">
+                <Link
+                  href="/configuracion"
+                  onClick={() => setIsAccountOpen(false)}
+                  className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-(--background-muted)"
+                  role="menuitem"
+                >
+                  Configuracion y seguridad
+                </Link>
+
+                <div className="my-1 border-t border-(--line)" />
+
+                <Link
+                  href="/favoritos"
+                  onClick={() => setIsAccountOpen(false)}
+                  className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-(--background-muted)"
+                  role="menuitem"
+                >
+                  Favoritos
+                </Link>
+
+                <Link
+                  href="/my-posts"
+                  onClick={() => setIsAccountOpen(false)}
+                  className="block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-(--background-muted)"
+                  role="menuitem"
+                >
+                  Mis publicaciones
+                </Link>
+
+                <div className="my-1 border-t border-(--line)" />
+
+                <button
+                  type="button"
+                  onClick={logout}
+                  className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-(--danger) hover:bg-red-50"
+                  role="menuitem"
+                >
+                  Cerrar sesion
+                </button>
+              </div>
+            ) : null}
+          </div>
         ) : null}
 
         <div className="relative shrink-0" ref={menuContainerRef}>
           <button
             type="button"
-            onClick={() => setIsMenuOpen((open) => !open)}
+            onClick={() => {
+              setIsMenuOpen((open) => !open)
+              setIsAccountOpen(false)
+            }}
             className="thsj-btn thsj-btn-ghost flex h-[3.1rem] w-[3.1rem] items-center justify-center p-0"
             aria-label="Abrir menu"
             aria-haspopup="menu"
@@ -258,32 +364,14 @@ export default function Navbar() {
                   </Link>
                 </>
               ) : (
-                <>
-                  <Link
-                    href="/create-post"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="block rounded-lg bg-(--brand-primary) px-3 py-2 text-sm font-semibold text-white hover:bg-(--brand-primary-strong)"
-                    role="menuitem"
-                  >
-                    Publicar
-                  </Link>
-                  <Link
-                    href="/my-posts"
-                    onClick={() => setIsMenuOpen(false)}
-                    className="mt-1 block rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-(--background-muted)"
-                    role="menuitem"
-                  >
-                    Mis avisos
-                  </Link>
-                  <button
-                    type="button"
-                    onClick={logout}
-                    className="mt-1 block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-(--background-muted)"
-                    role="menuitem"
-                  >
-                    Cerrar sesion
-                  </button>
-                </>
+                <Link
+                  href="/create-post"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="block rounded-lg bg-(--brand-primary) px-3 py-2 text-sm font-semibold text-white hover:bg-(--brand-primary-strong)"
+                  role="menuitem"
+                >
+                  Publicar
+                </Link>
               )}
             </div>
           ) : null}

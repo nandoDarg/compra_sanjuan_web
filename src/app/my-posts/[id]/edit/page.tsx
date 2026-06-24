@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase-client'
 import { getPostImagePathFromPublicUrl } from '@/lib/post-images'
 import { isVehicleCategory, type VehicleDetailsInput } from '@/lib/vehicle-details'
 import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
+import { resolveSanJuanDepartment } from '@/lib/san-juan-departments'
 
 const MAX_IMAGE_SIZE_BYTES = Math.round(2.5 * 1024 * 1024)
 
@@ -55,6 +56,7 @@ export default function EditPostPage() {
   const [post, setPost] = useState<Post | null>(null)
   const [existingGalleryUrls, setExistingGalleryUrls] = useState<string[]>([])
   const [vehicleDetails, setVehicleDetails] = useState<VehicleDetailsInput | null>(null)
+  const [profileLocality, setProfileLocality] = useState('')
   const [loading, setLoading] = useState(true)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
@@ -118,8 +120,15 @@ export default function EditPostPage() {
         .limit(1)
         .maybeSingle()
 
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('locality')
+        .eq('user_id', user.id)
+        .maybeSingle<{ locality: string | null }>()
+
       setExistingGalleryUrls(Array.from(new Set(mergedGallery)))
       setVehicleDetails((vehicleDetailsData as VehicleDetailsRow | null) ?? null)
+      setProfileLocality(resolveSanJuanDepartment(profileData?.locality))
       setPost(data)
       setLoading(false)
     }
@@ -365,7 +374,7 @@ export default function EditPostPage() {
         category: post.category,
         subcategory: post.subcategory,
         whatsappNumber: post.whatsapp_number,
-        locationDepartment: post.location_department,
+        locationDepartment: post.location_department || profileLocality,
         locationMapsUrl: post.location_maps_url,
         imageUrl: post.image_url,
         existingImageUrls: existingGalleryUrls,
