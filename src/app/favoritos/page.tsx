@@ -24,7 +24,33 @@ type Post = {
 
 type FavoriteWithPostRow = {
   created_at: string
-  post: {
+  post:
+    | {
+        id: string
+        user_id: string
+        title: string
+        description: string
+        price: number
+        category: string
+        subcategory: string | null
+        image_url: string | null
+        created_at: string
+      }
+    | Array<{
+        id: string
+        user_id: string
+        title: string
+        description: string
+        price: number
+        category: string
+        subcategory: string | null
+        image_url: string | null
+        created_at: string
+      }>
+    | null
+}
+
+type FavoritePost = {
     id: string
     user_id: string
     title: string
@@ -34,7 +60,18 @@ type FavoriteWithPostRow = {
     subcategory: string | null
     image_url: string | null
     created_at: string
-  } | null
+  }
+
+function pickFavoritePost(post: FavoriteWithPostRow['post']): FavoritePost | null {
+  if (!post) {
+    return null
+  }
+
+  if (Array.isArray(post)) {
+    return post[0] ?? null
+  }
+
+  return post
 }
 
 export default function FavoritosPage() {
@@ -76,9 +113,11 @@ export default function FavoritosPage() {
         return
       }
 
-      const normalizedPosts = ((data ?? []) as FavoriteWithPostRow[])
-        .map((item) => item.post)
-        .filter((post): post is FavoriteWithPostRow['post'] & { id: string } => Boolean(post?.id))
+      const rows = (data ?? []) as FavoriteWithPostRow[]
+
+      const normalizedPosts = rows
+        .map((item) => pickFavoritePost(item.post))
+        .filter((post): post is FavoritePost => Boolean(post?.id))
         .map((post) => ({
           ...post,
           ...resolveCategorySelection(post.category, post.subcategory),
