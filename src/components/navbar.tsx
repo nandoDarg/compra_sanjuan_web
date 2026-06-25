@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { useAuth } from './auth-provider'
@@ -16,6 +17,8 @@ export default function Navbar() {
   const isAuthRoute =
     pathname === '/login' || pathname === '/register' || pathname === '/reset-password' || pathname === '/auth/callback'
   const queryFromUrl = searchParams.get('q') ?? ''
+  const mobilePublishHref = user ? '/create-post' : '/login?next=%2Fcreate-post'
+  const canUsePortal = typeof window !== 'undefined'
   const [searchDraft, setSearchDraft] = useState(queryFromUrl)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAccountOpen, setIsAccountOpen] = useState(false)
@@ -419,6 +422,32 @@ export default function Navbar() {
           {desktopActions}
         </div>
       </div>
+
+      {canUsePortal && !isAuthRoute && pathname !== '/create-post'
+        ? createPortal(
+            <Link
+              href={mobilePublishHref}
+              className="fixed bottom-5 left-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(11,122,117,0.42)] bg-transparent text-[rgb(11,122,117)] shadow-[0_10px_24px_rgba(16,32,51,0.18)] transition hover:scale-105 hover:bg-[rgba(11,122,117,0.08)] md:hidden"
+              aria-label={user ? 'Publicar' : 'Iniciar sesion para publicar'}
+              title={user ? 'Publicar' : 'Iniciar sesion para publicar'}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                className="h-7 w-7"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3.2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="12" y1="5" x2="12" y2="19" />
+                <line x1="5" y1="12" x2="19" y2="12" />
+              </svg>
+            </Link>,
+            document.body
+          )
+        : null}
     </nav>
   )
 }
