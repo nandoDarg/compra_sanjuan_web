@@ -1,34 +1,72 @@
 # Contexto de continuidad IA
 
-Ultima actualizacion: 2026-06-11
+Ultima actualizacion: 2026-06-26
 Proyecto: compra_sanjuan_web (tratohechoSJ)
 
-## Resumen de la sesion
+## Resumen de sesiones recientes
+
+### Sesion 2026-06-24 a 2026-06-26: FAB Movil + Correcciones de Tipado
+
+- **FAB Movil (Floating Action Button)**:
+  - Implementado en esquina inferior izquierda de dispositivos moviles.
+  - Renderizado via React Portal a document.body para evitar ser atrapado por filters/blur del navbar.
+  - Estilo invertido: circulo transparente (bg-white/10) + signo mas coloreado con color de marca (stroke-[#0b7a75]).
+  - Navegacion auth-aware: usuario logueado va a `/create-post`, invitado va a `/login?next=%2Fcreate-post`.
+  - Oculto en rutas de auth y en `/create-post`.
+  - Patrón de portal: usar `typeof window !== 'undefined'` para gating, evitar setState-only effects.
+  
+- **Correcciones de Tipado**:
+  - Favoritos page: normalizacion de relacion `post` de Supabase que puede venir como objeto o array.
+  - Implementado helper `pickFavoritePost` en [src/lib/post-images.ts](src/lib/post-images.ts) para garantizar objeto consistente.
+  - Build `npm run build` validado exitosamente post-fix.
+
+- **Commits en main**:
+  - `d61a172` - fix: normaliza relacion favoritos->post para tipado de Supabase
+  - `a28de00` - feat: corrige FAB movil con portal y estilo invertido
+
+### Sesion previa (2026-06-11): Categorias jerarquicas + Busqueda semantica
 
 - Se agrego recuperacion de contraseña con nueva ruta `/reset-password`.
-- Login ahora incluye acceso rapido a la recuperacion de contraseña.
-- Se creo `COMANDOS_REPOSITORIO_GITHUB.txt` en la raiz con comandos manuales de Git/GitHub.
-- Se confirmo que `main` quedo sincronizado con `origin/main` luego del push del commit `f42ab2d`.
-- Se hicieron ajustes visuales iterativos en titulos y UI de filtros.
-- Se mejoro el mensaje de WhatsApp en detalle de publicacion.
-- Se agrego campo opcional `condition` en flujo create/edit/feed/detail.
-- Se implemento zona unificada de carga de imagenes en formulario.
-- Se agrego y luego se removio fallback temporal por mismatch de schema hasta aplicar migraciones.
-- Se detecto error real de Supabase por falta de tabla `vehicle_details` (PGRST205) y se dejo mensaje funcional claro en frontend.
 - Se implemento taxonomia jerarquica (categoria principal + subcategoria) con compatibilidad hacia atras.
 - Se agrego migracion SQL para `posts.subcategory` y mapeo de categorias legacy.
-- Se ajustaron filtros para que subcategorias sean desplegables y se puedan plegar al segundo click.
 - Se mejoro busqueda con normalizacion + fuzzy matching (Levenshtein <= 2) + expansion semantica por sinonimos.
 
 ## Cambios funcionales clave
 
-### 1) Vehiculos
+### 1) FAB Movil (Floating Action Button)
+
+- Ubicado en esquina inferior izquierda (bottom-5, left-4) del viewport.
+- Portal a document.body renderizado desde [src/components/navbar.tsx](src/components/navbar.tsx) para evitar trapping por blur/filter del nav.
+- Estilo invertido: background nearly transparent (white/10), border sutil (white/20), signo mas coloreado stroke-[#0b7a75].
+- Comportamiento: usuario autenticado va a create-post; invitado va a login con query next=/create-post.
+- Excluido en rutas auth y en create-post; solo visible en mobile (md:hidden).
+
+### 2) Favoritos - Tipado de Supabase
+
+- Relacion `post` normalizada con helper `pickFavoritePost` en [src/lib/post-images.ts](src/lib/post-images.ts).
+- Resuelve mismatch donde Supabase puede retornar relacion como objeto o array.
+- TypeScript validado y build exitoso.
+
+### 3) Plan Perfil Extendido (Pendiente implementacion)
+
+- Migracion SQL: [docs/sql/20260002_profiles_extended.sql](docs/sql/20260002_profiles_extended.sql)
+  - Nuevos campos: display_name, first_name, last_name, dni, phone, show_phone, address_street, locality, email.
+  - Compatibilidad: full_name, whatsapp_number, domicile, recovery_email (legacy).
+  - Backfill no destructivo + sincronizacion temporal.
+- Modulo unico de departamentos: [src/lib/san-juan-departments.ts](src/lib/san-juan-departments.ts) (19 departamentos).
+- Refactor configuracion:
+  - Nueva seccion "Informacion personal" con campos ordenados + localidad select.
+  - Panel unificado "Acceso y contraseña": email inmutable + cambio de contraseña integrado.
+  - Sin email de recuperacion en configuracion.
+  - Prefill de localidad en create-post y fallback en edit-post.
+
+### 4) Vehiculos
 
 - Create/edit guardan ficha tecnica en `vehicle_details`.
 - Detalle renderiza ficha tecnica cuando existe.
 - Si falta la tabla `vehicle_details`, ahora se muestra error explicito para ejecutar migracion.
 
-### 2) Categorias jerarquicas
+### 5) Categorias jerarquicas
 
 - Arbol local en `src/lib/hierarchical-categories.ts`.
 - Formularios guardan `category` y `subcategory`.
@@ -36,7 +74,7 @@ Proyecto: compra_sanjuan_web (tratohechoSJ)
 - Feed/detalle muestran ruta `Categoria > Subcategoria`.
 - Compatibilidad activa para entornos sin `subcategory`.
 
-### 3) Busqueda semantica/fuzzy
+### 6) Busqueda semantica/fuzzy
 
 - Mapa extensible en `src/lib/search/synonym-map.ts`.
 - Helper en `src/lib/search/expand-query.ts`.
@@ -49,30 +87,54 @@ Proyecto: compra_sanjuan_web (tratohechoSJ)
 
 ## SQL/migraciones relevantes
 
-- `docs/sql/20260604_profiles_display_name.sql`
-- `docs/sql/20260605_posts_condition.sql`
-- `docs/sql/20260609_posts_subcategory.sql`
+- `docs/sql/20260604_profiles_display_name.sql` (ya aplicada)
+- `docs/sql/20260605_posts_condition.sql` (ya aplicada)
+- `docs/sql/20260609_posts_subcategory.sql` (ya aplicada)
+- `docs/sql/20260002_profiles_extended.sql` (PENDIENTE: agregar campos nuevos y legacy, backfill, sincronizacion)
 
-## Estado de verificacion en sesion
+## Commits publicados hasta 2026-06-26
 
-- TypeScript validado en multiples pasos (`npx tsc --noEmit` OK).
-- Se ejecuto validacion parcial en navegador para feed, detalle y filtros.
-- Hubo estados intermitentes del dev server/browser en algunas pruebas, pero el codigo quedo compilando.
-
-## Commits publicados durante la continuidad reciente
-
-- `f42ab2d` - Fix clear filters with single navigation + docs update
-- `356bb5d` - Add hierarchical categories and compatibility fallbacks
-- `7dec0cc` - Search fuzzy + semantic expansion
-- `b4ff561` - Toggle collapse for expanded category filters
+- `d61a172` - fix: normaliza relacion favoritos->post para tipado de Supabase (2026-06-24)
+- `a28de00` - feat: corrige FAB movil con portal y estilo invertido (2026-06-26)
+- `f42ab2d` - Fix clear filters with single navigation + docs update (sesion anterior)
+- `356bb5d` - Add hierarchical categories and compatibility fallbacks (sesion anterior)
+- `7dec0cc` - Search fuzzy + semantic expansion (sesion anterior)
+- `b4ff561` - Toggle collapse for expanded category filters (sesion anterior)
 
 ## Pendientes recomendados para proxima sesion
 
-1. Ejecutar en Supabase cualquier migracion pendiente de `vehicle_details` y `subcategory`.
-2. Validar E2E final con sesion logueada:
-   - crear publicacion con subcategoria
-   - filtrar por subcategoria en feed
-   - editar y persistir ficha tecnica vehicular
-3. Probar el flujo completo de recuperacion de contraseña con correo real de Supabase.
-4. Ajustar sinonimos en `src/lib/search/synonym-map.ts` segun consultas reales.
-5. Si se necesitan comandos manuales de git/github, usar `COMANDOS_REPOSITORIO_GITHUB.txt` como referencia rapida.
+### Priority 1: Plan Perfil Extendido (Estructurado en 7 fases)
+
+1. **Fase 1**: Aplicar migracion SQL [docs/sql/20260002_profiles_extended.sql](docs/sql/20260002_profiles_extended.sql) en Supabase.
+   - Validar que agrega columnas nuevas y legacy con IF NOT EXISTS.
+   - Confirmar backfill y sincronizacion temporal sin errores.
+   
+2. **Fase 2**: Crear modulo [src/lib/san-juan-departments.ts](src/lib/san-juan-departments.ts) con 19 departamentos.
+   
+3. **Fase 3**: Refactorizar [src/lib/user-profile.ts](src/lib/user-profile.ts) para soportar esquema extendido.
+   - Tipos: UserProfileRow, ProfileInput, ProfileSnapshot.
+   - Normalizacion y payload dual (nuevo + legacy temporal).
+   
+4. **Fase 4**: Refactor [src/app/configuracion/page.tsx](src/app/configuracion/page.tsx).
+   - Nueva seccion "Informacion personal" con orden exacto de campos.
+   - Panel unificado "Acceso y contraseña" con email inmutable + cambio de contraseña.
+   - Excluir recovery_email de esta vista.
+   
+5. **Fase 5**: Prefill localidad en [src/app/create-post/page.tsx](src/app/create-post/page.tsx).
+   
+6. **Fase 6**: Fallback localidad en [src/app/my-posts/[id]/edit/page.tsx](src/app/my-posts/[id]/edit/page.tsx).
+   
+7. **Fase 7**: Verificacion tecnica y funcional (errores, validacion manual, E2E).
+
+### Priority 2: Validaciones y mejoras generales
+
+- Probar FAB en navegador movil real para confirmar posicion y oclusiones.
+- Validar que FAB sin sesion redirige a login con query next correctamente.
+- Ejecutar `npm run build` tras completar plan perfil extendido.
+- Revisar memoria de sesion en /memories/session/ para lecciones aprendidas.
+
+### Archivos / Referencias utiles
+
+- Plan detallado en [/memories/session/plan.md](memorias de sesion - plan del perfil extendido).
+- Memoria del repo: [/memories/repo/compra_sanjuan_web.md](notas tecnicas sobre patrones y decisiones).
+- Documentacion historica: ver commits `d61a172` (favoritos), `a28de00` (FAB) en main.
