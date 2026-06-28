@@ -18,12 +18,16 @@ export default function Navbar() {
     pathname === '/login' || pathname === '/register' || pathname === '/reset-password' || pathname === '/auth/callback'
   const queryFromUrl = searchParams.get('q') ?? ''
   const mobilePublishHref = user ? '/create-post' : '/login?next=%2Fcreate-post'
-  const canUsePortal = typeof window !== 'undefined'
+  const [mounted, setMounted] = useState(false)
   const [searchDraft, setSearchDraft] = useState(queryFromUrl)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAccountOpen, setIsAccountOpen] = useState(false)
   const menuContainerRef = useRef<HTMLDivElement | null>(null)
   const accountContainerRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -423,11 +427,11 @@ export default function Navbar() {
         </div>
       </div>
 
-      {canUsePortal && !isAuthRoute && pathname !== '/create-post'
+      {mounted && !isAuthRoute && pathname !== '/create-post'
         ? createPortal(
             <Link
               href={mobilePublishHref}
-              className="fixed bottom-5 left-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(11,122,117,0.42)] bg-transparent text-[rgb(11,122,117)] shadow-[0_10px_24px_rgba(16,32,51,0.18)] transition hover:scale-105 hover:bg-[rgba(11,122,117,0.08)] md:hidden"
+              className="fixed bottom-5 left-4 z-50 flex h-14 w-14 items-center justify-center rounded-full border border-[rgba(255,122,26,0.72)] bg-[rgba(255,122,26,0.5)] text-[rgb(7,94,90)] shadow-[0_10px_24px_rgba(16,32,51,0.18)] transition hover:scale-105 hover:bg-[rgba(255,122,26,0.62)] md:hidden"
               aria-label={user ? 'Publicar' : 'Iniciar sesion para publicar'}
               title={user ? 'Publicar' : 'Iniciar sesion para publicar'}
             >
