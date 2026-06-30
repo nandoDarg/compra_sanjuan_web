@@ -236,16 +236,25 @@ export default function Navbar() {
           <Image src="/icon.svg" alt="tratohechoSJ" width={50} height={50} className="h-[3.1rem] w-[3.1rem]" priority />
         </Link>
 
-        <label className="relative min-w-0 flex-1">
+        <form
+          role="search"
+          className="min-w-0 flex-1"
+          onSubmit={(e) => {
+            e.preventDefault()
+            executeSearch()
+            ;(document.activeElement as HTMLElement)?.blur()
+          }}
+        >
           <input
+            type="search"
+            enterKeyHint="search"
             value={searchDraft}
             onChange={(event) => setSearchDraft(event.target.value)}
-            onKeyDown={handleSearchKeyDown}
             placeholder="Buscar..."
             className="thsj-input w-full py-3.5 pl-3 pr-3 text-sm"
             aria-label="Buscar publicaciones"
           />
-        </label>
+        </form>
 
         <div className="relative shrink-0" ref={menuContainerRef}>
           <button

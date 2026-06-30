@@ -7,9 +7,10 @@ import PostCard from '@/components/post-card'
 import { useAuth } from '@/components/auth-provider'
 import FeedSkeleton from '@/components/ui/feed-skeleton'
 import EmptyState from '@/components/ui/empty-state'
-import CategoryFilter from '@/components/ui/category-filter'
 import CategorySidebar from '@/components/ui/category-sidebar'
+import CategoryIconBar from '@/components/ui/category-icon-bar'
 import ActiveFilterChips from '@/components/ui/active-filter-chips'
+import ContextualFilterBar from '@/components/ui/contextual-filter-bar'
 import { ANALYTICS_EVENTS, trackEvent } from '@/lib/analytics/tracking'
 import {
   CATEGORY_TREE,
@@ -725,6 +726,8 @@ function HomeContent() {
     sortBy !== 'recent' ||
     selectedCondition !== null
 
+  const showFilterBar = searchQuery.length > 0 || selectedCategory !== 'Todas'
+
   const fallbackCategorySuggestions = useMemo(
     () =>
       categoryStats
@@ -732,8 +735,6 @@ function HomeContent() {
         .slice(0, SUGGESTION_LIMIT),
     [categoryStats]
   )
-
-  const mobileCategories = categoryStats
 
   const desktopCategories = categoryStats
 
@@ -839,80 +840,32 @@ function HomeContent() {
         />
       </div>
 
-      <div className="flex min-w-0 flex-col gap-4 lg:order-2">
-        <div className="thsj-panel p-4 sm:p-5">
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-[220px_auto]">
-          <label className="relative flex w-full">
-            <select
-              value={sortBy}
-              onChange={(event) => setSortBy(event.target.value as SortOption)}
-              className={[
-                'thsj-input w-full appearance-none px-3 py-2.5 pr-9 text-sm',
-                sortBy === 'recent' ? 'text-(--foreground-muted)' : '',
-              ].join(' ')}
-            >
-              <option value="recent">Ordenar por</option>
-              <option value="price-asc">Menor precio</option>
-              <option value="price-desc">Mayor precio</option>
-            </select>
-            <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-(--foreground-muted)">
-              ▾
-            </span>
-          </label>
+      <div className="flex min-w-0 flex-col gap-3 lg:order-2">
+        <CategoryIconBar
+          selectedCategory={selectedCategory}
+          onSelectCategory={handleCategoryChange}
+          className="lg:hidden"
+        />
 
-          {hasFilters ? (
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="thsj-btn thsj-btn-ghost"
-            >
-              Limpiar filtros
-            </button>
-          ) : null}
-        </div>
+        <ActiveFilterChips
+          searchQuery={searchQuery}
+          selectedCategory={selectedCategory}
+          selectedSubcategory={selectedSubcategory}
+          sortBy="recent"
+          onRemoveSearch={() => updateSearchQuery('')}
+          onRemoveCategory={() => handleCategoryChange('Todas')}
+          onRemoveSubcategory={() => updateCategoryFilters(selectedCategory, 'Todas')}
+          onRemoveSort={() => setSortBy('recent')}
+        />
 
-        <div className="mt-3 flex flex-col gap-3">
-          <CategoryFilter
-            categories={mobileCategories}
-            selectedCategory={selectedCategory}
-            selectedSubcategory={selectedSubcategory}
-            onChangeCategory={handleCategoryChange}
-            onChangeSubcategory={handleSubcategoryChange}
-            className="lg:hidden"
-          />
-
-          <div className="flex gap-2">
-            {(['new', 'used'] as const).map((cond) => (
-              <button
-                key={cond}
-                type="button"
-                onClick={() => updateCondition(selectedCondition === cond ? null : cond)}
-                className={[
-                  'whitespace-nowrap rounded-full border px-3 py-1.5 text-sm font-medium transition',
-                  selectedCondition === cond
-                    ? cond === 'new'
-                      ? 'border-(--success) bg-(--success) text-white shadow-sm'
-                      : 'border-(--brand-secondary) bg-(--brand-secondary) text-white shadow-sm'
-                    : 'thsj-chip hover:border-(--line-strong) hover:bg-(--background-elevated)',
-                ].join(' ')}
-              >
-                {cond === 'new' ? 'Nuevo' : 'Usado'}
-              </button>
-            ))}
-          </div>
-
-          <ActiveFilterChips
-            searchQuery={searchQuery}
-            selectedCategory={selectedCategory}
-            selectedSubcategory={selectedSubcategory}
+        {showFilterBar ? (
+          <ContextualFilterBar
             sortBy={sortBy}
-            onRemoveSearch={() => updateSearchQuery('')}
-            onRemoveCategory={() => handleCategoryChange('Todas')}
-            onRemoveSubcategory={() => updateCategoryFilters(selectedCategory, 'Todas')}
-            onRemoveSort={() => setSortBy('recent')}
+            onSortChange={setSortBy}
+            selectedCondition={selectedCondition}
+            onConditionChange={updateCondition}
           />
-        </div>
-      </div>
+        ) : null}
 
       {fallbackMode !== 'none' ? (
         <div className="thsj-panel p-4 sm:p-5">
