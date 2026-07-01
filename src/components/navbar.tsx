@@ -152,6 +152,15 @@ export default function Navbar() {
           >
             Ingresar
           </Link>
+          <button
+            type="button"
+            onClick={() => setIsFeedbackOpen(true)}
+            className="thsj-btn thsj-btn-ghost px-3"
+            aria-label="Ayudanos a mejorar"
+            title="Ayudanos a mejorar"
+          >
+            💡
+          </button>
         </>
       )
     }
@@ -223,6 +232,17 @@ export default function Navbar() {
                 role="menuitem"
               >
                 Cerrar sesion
+              </button>
+
+              <div className="my-1 border-t border-(--line)" />
+
+              <button
+                type="button"
+                onClick={() => { setIsAccountOpen(false); setIsFeedbackOpen(true) }}
+                className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-(--background-muted)"
+                role="menuitem"
+              >
+                💡 Ayudanos a mejorar
               </button>
             </div>
           ) : null}
