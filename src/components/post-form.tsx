@@ -311,8 +311,13 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number) {
   })
 }
 
+const IMAGE_EXTENSION_RE = /\.(jpe?g|png|gif|webp|avif|heic|heif|bmp|tiff?)$/i
+
 async function ensureFileWithinBudget(file: File) {
-  if (!file.type.startsWith('image/')) {
+  // Android camera captures often return file.type="" — fall back to extension check
+  const isImageByMime = file.type.startsWith('image/')
+  const isImageByExt = IMAGE_EXTENSION_RE.test(file.name)
+  if (!isImageByMime && !isImageByExt) {
     throw new Error(`El archivo ${file.name} no es una imagen valida.`)
   }
 
