@@ -7,6 +7,7 @@ import { createPortal } from 'react-dom'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { useAuth } from './auth-provider'
+import FeedbackModal from './ui/feedback-modal'
 
 export default function Navbar() {
   const { user, loading } = useAuth()
@@ -22,6 +23,7 @@ export default function Navbar() {
   const [searchDraft, setSearchDraft] = useState(queryFromUrl)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isAccountOpen, setIsAccountOpen] = useState(false)
+  const [isFeedbackOpen, setIsFeedbackOpen] = useState(false)
   const menuContainerRef = useRef<HTMLDivElement | null>(null)
   const accountContainerRef = useRef<HTMLDivElement | null>(null)
 
@@ -292,6 +294,17 @@ export default function Navbar() {
                   >
                     Registrarse
                   </Link>
+
+                  <div className="my-1 border-t border-(--line)" />
+
+                  <button
+                    type="button"
+                    onClick={() => { setIsMenuOpen(false); setIsFeedbackOpen(true) }}
+                    className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-(--background-muted)"
+                    role="menuitem"
+                  >
+                    💡 Ayudanos a mejorar
+                  </button>
                 </>
               ) : (
                 <>
@@ -340,6 +353,17 @@ export default function Navbar() {
                     role="menuitem"
                   >
                     Cerrar sesion
+                  </button>
+
+                  <div className="my-1 border-t border-(--line)" />
+
+                  <button
+                    type="button"
+                    onClick={() => { setIsMenuOpen(false); setIsFeedbackOpen(true) }}
+                    className="block w-full rounded-lg px-3 py-2 text-left text-sm font-medium text-foreground hover:bg-(--background-muted)"
+                    role="menuitem"
+                  >
+                    💡 Ayudanos a mejorar
                   </button>
                 </>
               )}
@@ -412,6 +436,16 @@ export default function Navbar() {
                 <line x1="5" y1="12" x2="19" y2="12" />
               </svg>
             </Link>,
+            document.body
+          )
+        : null}
+
+      {mounted && isFeedbackOpen
+        ? createPortal(
+            <FeedbackModal
+              isAuthenticated={Boolean(user)}
+              onClose={() => setIsFeedbackOpen(false)}
+            />,
             document.body
           )
         : null}
