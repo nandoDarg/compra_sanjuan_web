@@ -98,6 +98,18 @@ export const CATEGORY_TREE: Category[] = [
   ]),
   makeRoot('Articulos', [
     makeBranch('Electronica y tecnologia', ['Celulares', 'Audio y video', 'Otros']),
+    makeBranch('Computacion', [
+      'Laptops y Accesorios',
+      'PC de Escritorio',
+      'Monitores y Accesorios',
+      'Componentes de PC',
+      'Almacenamiento',
+      'Impresoras y Escaneres',
+      'Redes e Inalambrico',
+      'Tablets y Accesorios',
+      'Software',
+      'Servidores y NAS',
+    ]),
     makeLeaf('Electrodomesticos'),
     makeBranch('Hogar y muebles', ['Cocina y Bazar', 'Estar y comedor', 'Jardines y Exteriores', 'Muebles', 'Otros']),
     makeLeaf('Construccion'),
