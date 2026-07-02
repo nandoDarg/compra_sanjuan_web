@@ -1,184 +1,164 @@
 # Contexto de continuidad IA
 
-Ultima actualizacion: 2026-06-30
+Ultima actualizacion: 2026-07-01
 Proyecto: compra_sanjuan_web (tratohechoSJ)
 
 ## Resumen de sesiones recientes
 
+### Sesion 2026-07-01: Bug camara Android + Features varias
+
+#### Bug: foto de camara no se cargaba en formulario de publicacion
+- **Causa raiz confirmada**: `capture="environment"` hace que Android abra la camara como Intent nativo. Al aceptar la foto, Android recarga la pagina del browser completamente (evidencia: aparecia el panel "Cargando publicacion..." del edit page). Todo el estado de React se pierde y el archivo de camara tambien.
+- **Intentos fallidos**:
+  - Fix MIME type en `ensureFileWithinBudget` → no era el problema real
+  - Cambiar botones a `<label htmlFor>` → idem, el reload ocurre antes de que el onChange pueda disparar
+  - Remover `capture="environment"` → Android 13 abre Google Fotos sin opcion de camara
+- **Solucion implementada**: componente `CameraModal` que usa `getUserMedia()` para acceder a la camara dentro del browser, sin salir de la pagina. La foto se captura directamente como File en memoria y se pasa a `addImageFiles`. No hay reload de pagina.
+- **Archivos modificados**:
+  - `src/components/ui/camera-modal.tsx` — nuevo componente (video fullscreen + boton captura circular)
+  - `src/components/post-form.tsx` — importa CameraModal, agrega estado `showCamera`, los botones "Tomar foto" llaman `setShowCamera(true)`
+- **Estado**: implementado, pendiente prueba en celular via ngrok (getUserMedia requiere HTTPS; no funciona en `192.168.100.11:3000`)
+- **Como probar**: ejecutar `ngrok http 3000` en terminal separada mientras corre el dev server, acceder desde celular a la URL HTTPS de ngrok
+- **Cambio adicional**: `capture="environment"` eliminado del input de camara (que queda como fallback hidden, sin uso en el flujo normal)
+
+#### Feature: Herramienta de feedback/sugerencias
+- Accesible desde el menu de 3 puntos (mobile) y desde el dropdown "Cuenta" y boton 💡 (desktop).
+- Modal con formulario: tipo de envio (anonimo por defecto / con usuario si hay sesion), tipo de mensaje (sugerencia/problema/funcion/otro), textarea de mensaje.
+- API route `src/app/api/feedback/route.ts`: guarda en tabla `feedback` de Supabase, envia email via Resend a `nandodclavijo@gmail.com`.
+- **SQL pendiente de aplicar manualmente en Supabase**: `docs/sql/20260701_feedback.sql` (tabla feedback + RLS: insert abierto, select bloqueado).
+- Archivos: `src/components/ui/feedback-modal.tsx`, `src/app/api/feedback/route.ts`, `docs/sql/20260701_feedback.sql`.
+- `RESEND_API_KEY` ya agregada a `.env.local` por el usuario.
+
+#### Feature: Rediseno filtros en Home
+- Se elimino el bloque `thsj-panel` con dropdowns de categoria/orden/condicion.
+- Se agrego `CategoryIconBar`: barra horizontal compacta con iconos de categorias (Todas + 4 raices), solo visible en mobile (`lg:hidden`).
+- Se agrego `ContextualFilterBar`: barra de sort + chips condicion que solo aparece cuando hay busqueda activa o categoria seleccionada.
+- Archivos: `src/components/ui/category-icon-bar.tsx`, `src/components/ui/contextual-filter-bar.tsx`, `src/app/page.tsx`.
+
+#### Feature: Subcategorias de Computacion
+- Dentro de `makeRoot('Articulos')`, se agrego `makeBranch('Computacion', [...10 subcategorias...])`.
+- Subcategorias: Laptops y Accesorios, PC de Escritorio, Monitores y Accesorios, Componentes de PC, Almacenamiento, Impresoras y Escaneres, Redes e Inalambrico, Tablets y Accesorios, Software, Servidores y NAS.
+- Archivo: `src/lib/hierarchical-categories.ts`.
+
+#### Fix: busqueda mobile con teclado Android
+- Input de busqueda mobile envuelto en `<form role="search" onSubmit>` con `type="search"` y `enterKeyHint="search"`.
+- El handler `onSubmit` ejecuta la busqueda y llama `.blur()` para bajar el teclado.
+- Archivo: `src/components/navbar.tsx`.
+
 ### Sesion 2026-06-30: Refactor Navbar (mobile + desktop)
 
-- **Mobile — barra superior simplificada**:
-  - Se elimino el boton lupa (busqueda ejecuta con Enter del teclado movil).
-  - Se elimino el boton de usuario separado (icono de persona).
-  - El menu de 3 puntos ahora contiene TODAS las opciones:
-    - Sin sesion: "Iniciar sesion" / "Registrarse"
-    - Con sesion: "Publicar" (destacado) / separador / "Configuracion y seguridad" / "Favoritos" / "Mis publicaciones" / separador / "Cerrar sesion"
-  - Resultado: solo quedan Logo | Buscador (ancho, flex-1) | ⋮
+- Mobile: Logo | Buscador (flex-1) | Menu 3 puntos. Busqueda con Enter. Menu unificado.
+- Desktop sin sesion: Publicar (primary) | Ingresar (ghost) | 💡 (feedback). Sin boton Registro separado.
+- Commit: `7d1d1c5`
 
-- **Desktop — botones de accion sin sesion**:
-  - "Explorar" (sin utilidad) reemplazado por "Publicar" con estilo primario (naranja).
-    - Dirige a `/login?next=%2Fcreate-post` — tras login redirige a create-post.
-  - "Login" renombrado a "Ingresar" (estilo ghost).
-  - "Registro" eliminado — el registro sigue accesible desde la pagina de login.
-  - Orden final: **Publicar** (primary, izquierda) | **Ingresar** (ghost, derecha)
-  - Con sesion: sin cambios (Publicar → /create-post + menu Cuenta).
+### Sesion 2026-06-27: Fix hidratacion FAB + ajuste visual
 
-- **Commit**: `7d1d1c5` — feat: refactoriza navbar movil y desktop
-- **Deploy**: push a main, Vercel despliega automaticamente.
+- Patron `mounted` en navbar para portal del FAB (evita hydration mismatch SSR).
+- FAB: circulo naranja 50% opacidad, icono + color marca.
 
-### Sesion 2026-06-27: Fix de hidratacion en Navbar + ajuste visual FAB
+### Sesion 2026-06-24 a 2026-06-26: FAB Movil + Correcciones Tipado
 
-- **Hydration fix en portal del FAB**:
-  - Se detecto mismatch SSR/cliente en el render del boton flotante por condicion basada en entorno.
-  - En `src/components/navbar.tsx` se reemplazo gating del portal por estado de montaje:
-    - `const [mounted, setMounted] = useState(false)`
-    - `useEffect(() => { setMounted(true) }, [])`
-    - condicion del portal: `mounted && ... ? createPortal(...) : null`
-  - Objetivo cumplido: durante SSR y primer render cliente no se renderiza el portal; aparece despues del mount.
-
-- **Ajuste visual FAB completado** (pendiente de sesion anterior):
-  - FAB movil con circulo relleno naranja al 50% de opacidad: `bg-[rgba(255,122,26,0.5)]`
-  - Border naranja sutil: `border-[rgba(255,122,26,0.72)]`
-  - Icono + con color de marca: `stroke="currentColor"` sobre `text-[rgb(7,94,90)]`
-
-### Sesion 2026-06-24 a 2026-06-26: FAB Movil + Correcciones de Tipado
-
-- **FAB Movil (Floating Action Button)**:
-  - Implementado en esquina inferior izquierda de dispositivos moviles.
-  - Renderizado via React Portal a document.body para evitar ser atrapado por filters/blur del navbar.
-  - Navegacion auth-aware: usuario logueado va a `/create-post`, invitado va a `/login?next=%2Fcreate-post`.
-  - Oculto en rutas de auth y en `/create-post`.
-  - Desde 2026-06-27, patron de portal actualizado para SSR: gating por `mounted` para evitar hydration mismatch.
-  
-- **Correcciones de Tipado**:
-  - Favoritos page: normalizacion de relacion `post` de Supabase que puede venir como objeto o array.
-  - Implementado helper `pickFavoritePost` en [src/lib/post-images.ts](src/lib/post-images.ts) para garantizar objeto consistente.
-  - Build `npm run build` validado exitosamente post-fix.
+- FAB en esquina inferior izquierda via React Portal.
+- Fix tipado Supabase en favoritos: helper `pickFavoritePost` en `src/lib/post-images.ts`.
 
 ### Sesion previa (2026-06-11): Categorias jerarquicas + Busqueda semantica
 
-- Se agrego recuperacion de contraseña con nueva ruta `/reset-password`.
-- Se implemento taxonomia jerarquica (categoria principal + subcategoria) con compatibilidad hacia atras.
-- Se agrego migracion SQL para `posts.subcategory` y mapeo de categorias legacy.
-- Se mejoro busqueda con normalizacion + fuzzy matching (Levenshtein <= 2) + expansion semantica por sinonimos.
+- Recuperacion de contraseña (`/reset-password`).
+- Taxonomia jerarquica (categoria + subcategoria) con compatibilidad legacy.
+- Busqueda fuzzy + sinonimos.
 
 ## Cambios funcionales clave
 
-### 1) Navbar Mobile (actualizado 2026-06-30)
-
-- Estructura: Logo | Buscador (flex-1) | Menu 3 puntos
-- Busqueda ejecuta con Enter (sin boton lupa).
-- Menu 3 puntos unificado:
-  - Sin sesion: Iniciar sesion / Registrarse
-  - Con sesion: Publicar / Configuracion y seguridad / Favoritos / Mis publicaciones / Cerrar sesion
+### 1) Navbar (actualizado 2026-06-30)
+- Mobile: Logo | Buscador | ⋮ (menu 3 puntos). Busqueda ejecuta con Enter + baja teclado.
+- Desktop sin sesion: Publicar (→ login?next=/create-post) | Ingresar | 💡
+- Desktop con sesion: Publicar | Cuenta (dropdown con Configuracion, Favoritos, Mis publicaciones, Cerrar sesion, 💡 Ayudanos a mejorar)
 - Archivo: [src/components/navbar.tsx](src/components/navbar.tsx)
 
-### 2) Navbar Desktop (actualizado 2026-06-30)
-
-- Sin sesion: **Publicar** (primary → `/login?next=/create-post`) | **Ingresar** (ghost → `/login`)
-- Con sesion: sin cambios — Publicar (→ /create-post) + dropdown Cuenta
-- Registro ya no es boton separado; accesible desde pagina de login.
+### 2) FAB Movil
+- Portal a document.body desde navbar. Circulo naranja. Solo mobile, excluido en rutas auth y create-post.
 - Archivo: [src/components/navbar.tsx](src/components/navbar.tsx)
 
-### 3) FAB Movil (Floating Action Button)
+### 3) Home — filtros y categorias
+- `CategoryIconBar`: iconos de categoria siempre visibles en mobile.
+- `ContextualFilterBar`: sort + condicion, solo visible cuando hay busqueda o categoria activa.
+- Archivos: [src/components/ui/category-icon-bar.tsx](src/components/ui/category-icon-bar.tsx), [src/components/ui/contextual-filter-bar.tsx](src/components/ui/contextual-filter-bar.tsx), [src/app/page.tsx](src/app/page.tsx)
 
-- Ubicado en esquina inferior izquierda (bottom-5, left-4) del viewport.
-- Portal a document.body renderizado desde [src/components/navbar.tsx](src/components/navbar.tsx).
-- Estilo: circulo naranja al 50% de opacidad (`bg-[rgba(255,122,26,0.5)]`), icono + con color de marca.
-- Hidratacion SSR corregida con render condicional por estado `mounted`.
-- Comportamiento: autenticado → create-post; invitado → login?next=/create-post.
-- Excluido en rutas auth y en create-post; solo visible en mobile (md:hidden).
+### 4) Feedback/sugerencias
+- Acceso desde navbar (mobile: menu 3 puntos; desktop: 💡 o dropdown Cuenta).
+- Modal: anonimo por defecto, tipo + mensaje, envia a Supabase + email Resend.
+- Archivos: [src/components/ui/feedback-modal.tsx](src/components/ui/feedback-modal.tsx), [src/app/api/feedback/route.ts](src/app/api/feedback/route.ts)
+- **PENDIENTE**: aplicar `docs/sql/20260701_feedback.sql` en Supabase SQL Editor.
 
-### 4) Favoritos - Tipado de Supabase
+### 5) Camara en formulario de publicacion
+- `CameraModal`: acceso a camara via `getUserMedia()`, sin salir de la pagina, sin reload.
+- Requiere HTTPS (ngrok o produccion). En HTTP local no funcionara (browser lo bloquea).
+- Archivos: [src/components/ui/camera-modal.tsx](src/components/ui/camera-modal.tsx), [src/components/post-form.tsx](src/components/post-form.tsx)
+- **PENDIENTE**: probar en celular via ngrok y confirmar funcionamiento.
 
-- Relacion `post` normalizada con helper `pickFavoritePost` en [src/lib/post-images.ts](src/lib/post-images.ts).
-- Resuelve mismatch donde Supabase puede retornar relacion como objeto o array.
+### 6) Categorias jerarquicas + Computacion
+- Arbol en [src/lib/hierarchical-categories.ts](src/lib/hierarchical-categories.ts).
+- Computacion es un `makeBranch` dentro de Articulos con 10 subcategorias.
 
-### 5) Plan Perfil Extendido (Pendiente implementacion)
-
+### 7) Plan Perfil Extendido (Pendiente implementacion)
 - Migracion SQL: [docs/sql/20260002_profiles_extended.sql](docs/sql/20260002_profiles_extended.sql)
-  - Nuevos campos: display_name, first_name, last_name, dni, phone, show_phone, address_street, locality, email.
-  - Compatibilidad: full_name, whatsapp_number, domicile, recovery_email (legacy).
-  - Backfill no destructivo + sincronizacion temporal.
-- Modulo unico de departamentos: [src/lib/san-juan-departments.ts](src/lib/san-juan-departments.ts) (19 departamentos).
-- Refactor configuracion:
-  - Nueva seccion "Informacion personal" con campos ordenados + localidad select.
-  - Panel unificado "Acceso y contraseña": email inmutable + cambio de contraseña integrado.
-  - Sin email de recuperacion en configuracion.
-  - Prefill de localidad en create-post y fallback en edit-post.
+- Nuevos campos: display_name, first_name, last_name, dni, phone, show_phone, address_street, locality, email.
+- Refactor configuracion, prefill localidad en create-post/edit-post.
 
-### 6) Vehiculos
+### 8) Vehiculos
+- Ficha tecnica en `vehicle_details`. Detalle renderiza ficha cuando existe.
 
-- Create/edit guardan ficha tecnica en `vehicle_details`.
-- Detalle renderiza ficha tecnica cuando existe.
-- Si falta la tabla `vehicle_details`, ahora se muestra error explicito para ejecutar migracion.
+### 9) Busqueda semantica/fuzzy
+- `src/lib/search/synonym-map.ts` + `src/lib/search/expand-query.ts`.
+- Pipeline: normalizar → stop-words → fuzzy → sinonimos → OR multi-termino en Supabase.
 
-### 7) Categorias jerarquicas
+## SQL/migraciones
 
-- Arbol local en `src/lib/hierarchical-categories.ts`.
-- Formularios guardan `category` y `subcategory`.
-- Feed/sidebar filtran por categoria principal y subcategoria.
-- Feed/detalle muestran ruta `Categoria > Subcategoria`.
-- Compatibilidad activa para entornos sin `subcategory`.
+| Archivo | Estado |
+|---|---|
+| `docs/sql/20260604_profiles_display_name.sql` | Aplicada |
+| `docs/sql/20260605_posts_condition.sql` | Aplicada |
+| `docs/sql/20260609_posts_subcategory.sql` | Aplicada |
+| `docs/sql/20260616_profiles_user_account_fields.sql` | Aplicada |
+| `docs/sql/20260701_feedback.sql` | **PENDIENTE — aplicar en Supabase SQL Editor** |
+| `docs/sql/20260002_profiles_extended.sql` | PENDIENTE (plan perfil extendido) |
 
-### 8) Busqueda semantica/fuzzy
+## Estado del repositorio (2026-07-01)
 
-- Mapa extensible en `src/lib/search/synonym-map.ts`.
-- Helper en `src/lib/search/expand-query.ts`.
-- Pipeline: normalizar texto → remover stop-words → fuzzy a termino canonico → expandir sinonimos.
-- Query Supabase construida con OR multi-termino antes de enviar.
+- Commit publicado en origin/main: `d75d235` (fix primer intento camara — ya superado por la nueva implementacion)
+- Cambios locales SIN commitear:
+  - `src/components/post-form.tsx` — integracion CameraModal, removeCapture, estado showCamera
+  - `src/components/ui/camera-modal.tsx` — nuevo archivo (sin rastrear)
+- **Accion pendiente**: hacer commit y push de los cambios de camara una vez confirmado que funciona via ngrok.
 
-## SQL/migraciones relevantes
+## Pendientes para proxima sesion
 
-- `docs/sql/20260604_profiles_display_name.sql` (ya aplicada)
-- `docs/sql/20260605_posts_condition.sql` (ya aplicada)
-- `docs/sql/20260609_posts_subcategory.sql` (ya aplicada)
-- `docs/sql/20260616_profiles_user_account_fields.sql` (ya aplicada)
-- `docs/sql/20260002_profiles_extended.sql` (PENDIENTE: agregar campos nuevos y legacy, backfill, sincronizacion)
+### Priority 1: Confirmar camara en Android
+1. Ejecutar `ngrok http 3000` + `npm run dev` simultaneamente.
+2. Desde celular, ir a la URL HTTPS de ngrok.
+3. Ir a crear/editar publicacion → "Tomar foto" → debe abrir overlay negro con vista de camara en el browser.
+4. Capturar foto con boton circular blanco → imagen debe aparecer en formulario sin recarga.
+5. Si funciona: commit + push de `post-form.tsx` y `camera-modal.tsx`.
 
-## Commits publicados hasta 2026-06-30
+### Priority 2: Aplicar SQL de feedback
+- Entrar a Supabase SQL Editor y ejecutar `docs/sql/20260701_feedback.sql`.
+- Verificar que la tabla `feedback` se crea con RLS habilitado.
+- Probar envio de sugerencia desde el modal (anonimo y con usuario).
 
-- `7d1d1c5` - feat: refactoriza navbar movil y desktop (2026-06-30)
-- `f2fd108` - feat: ajusta FAB movil y actualiza contexto de continuidad (2026-06-27)
-- `34f443b` - docs: actualiza contexto de continuidad para sesion 2026-06-26
-- `a28de00` - feat: corrige FAB movil con portal y estilo invertido (2026-06-26)
-- `d61a172` - fix: normaliza relacion favoritos->post para tipado de Supabase (2026-06-24)
+### Priority 3: Plan Perfil Extendido (7 fases)
+1. Aplicar `docs/sql/20260002_profiles_extended.sql` en Supabase.
+2. Crear modulo `src/lib/san-juan-departments.ts` (19 departamentos).
+3. Refactorizar `src/lib/user-profile.ts` para esquema extendido.
+4. Refactor `src/app/configuracion/page.tsx` (info personal + acceso unificado).
+5. Prefill localidad en `src/app/create-post/page.tsx`.
+6. Fallback localidad en `src/app/my-posts/[id]/edit/page.tsx`.
+7. Verificacion tecnica y funcional.
 
-## Pendientes recomendados para proxima sesion
-
-### Priority 1: Plan Perfil Extendido (Estructurado en 7 fases)
-
-1. **Fase 1**: Aplicar migracion SQL [docs/sql/20260002_profiles_extended.sql](docs/sql/20260002_profiles_extended.sql) en Supabase.
-   - Validar que agrega columnas nuevas y legacy con IF NOT EXISTS.
-   - Confirmar backfill y sincronizacion temporal sin errores.
-   
-2. **Fase 2**: Crear modulo [src/lib/san-juan-departments.ts](src/lib/san-juan-departments.ts) con 19 departamentos.
-   
-3. **Fase 3**: Refactorizar [src/lib/user-profile.ts](src/lib/user-profile.ts) para soportar esquema extendido.
-   - Tipos: UserProfileRow, ProfileInput, ProfileSnapshot.
-   - Normalizacion y payload dual (nuevo + legacy temporal).
-   
-4. **Fase 4**: Refactor [src/app/configuracion/page.tsx](src/app/configuracion/page.tsx).
-   - Nueva seccion "Informacion personal" con orden exacto de campos.
-   - Panel unificado "Acceso y contraseña" con email inmutable + cambio de contraseña.
-   - Excluir recovery_email de esta vista.
-   
-5. **Fase 5**: Prefill localidad en [src/app/create-post/page.tsx](src/app/create-post/page.tsx).
-   
-6. **Fase 6**: Fallback localidad en [src/app/my-posts/[id]/edit/page.tsx](src/app/my-posts/[id]/edit/page.tsx).
-   
-7. **Fase 7**: Verificacion tecnica y funcional (errores, validacion manual, E2E).
-
-### Priority 2: Validaciones y mejoras generales
-
-- Probar navbar mobile en navegador movil real para confirmar comportamiento del menu 3 puntos.
-- Validar que "Publicar" sin sesion (desktop y FAB) redirige correctamente a login y luego a create-post.
-- Ejecutar `npm run build` tras completar plan perfil extendido.
-- Evaluar si la pagina `/login` muestra link claro a registro (ya que se elimino boton Registro del desktop).
-
-### Archivos / Referencias utiles
-
-- Navbar unificado: [src/components/navbar.tsx](src/components/navbar.tsx)
+### Archivos clave de referencia
+- Navbar: [src/components/navbar.tsx](src/components/navbar.tsx)
+- Formulario publicacion: [src/components/post-form.tsx](src/components/post-form.tsx)
+- Modal camara: [src/components/ui/camera-modal.tsx](src/components/ui/camera-modal.tsx)
+- Modal feedback: [src/components/ui/feedback-modal.tsx](src/components/ui/feedback-modal.tsx)
+- API feedback: [src/app/api/feedback/route.ts](src/app/api/feedback/route.ts)
+- Categorias: [src/lib/hierarchical-categories.ts](src/lib/hierarchical-categories.ts)
 - Migracion perfil extendido: [docs/sql/20260002_profiles_extended.sql](docs/sql/20260002_profiles_extended.sql)
-- Helper post-images: [src/lib/post-images.ts](src/lib/post-images.ts)
-- Documentacion historica: ver commits en main desde `d61a172` en adelante.

@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
+import CameraModal from './ui/camera-modal'
 import Cropper from 'react-easy-crop'
 import type { Area, Point } from 'react-easy-crop'
 import {
@@ -311,13 +312,11 @@ function canvasToBlob(canvas: HTMLCanvasElement, quality: number) {
   })
 }
 
-const IMAGE_EXTENSION_RE = /\.(jpe?g|png|gif|webp|avif|heic|heif|bmp|tiff?)$/i
-
 async function ensureFileWithinBudget(file: File) {
-  // Android camera captures often return file.type="" — fall back to extension check
-  const isImageByMime = file.type.startsWith('image/')
-  const isImageByExt = IMAGE_EXTENSION_RE.test(file.name)
-  if (!isImageByMime && !isImageByExt) {
+  // Reject only when an explicit non-image MIME type is present.
+  // Empty type (common on Android camera captures) is allowed through;
+  // imageToCanvas acts as the real validator via img.onerror.
+  if (file.type !== '' && !file.type.startsWith('image/')) {
     throw new Error(`El archivo ${file.name} no es una imagen valida.`)
   }
 
@@ -509,6 +508,7 @@ export default function PostForm({
   })
   const [isDragOver, setIsDragOver] = useState(false)
   const [showUrlInput, setShowUrlInput] = useState(false)
+  const [showCamera, setShowCamera] = useState(false)
 
   const availableSubcategories = useMemo(
     () => getSubcategories(selectedCategory),
@@ -1404,11 +1404,11 @@ export default function PostForm({
             }}
           />
           <input
+            id="camera-capture-input"
             ref={cameraInputRef}
             className="sr-only"
             type="file"
             accept="image/*"
-            capture="environment"
             disabled={processingImages || galleryItems.length >= MAX_IMAGES}
             onChange={(event) => {
               void addImageFiles(Array.from(event.target.files ?? []))
@@ -1451,7 +1451,7 @@ export default function PostForm({
                   </button>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click() }}
+                    onClick={(e) => { e.stopPropagation(); setShowCamera(true) }}
                     disabled={processingImages}
                     className="thsj-btn thsj-btn-ghost px-3 py-1.5 text-xs disabled:opacity-60"
                   >
@@ -1501,7 +1501,7 @@ export default function PostForm({
                   </button>
                   <button
                     type="button"
-                    onClick={(e) => { e.stopPropagation(); cameraInputRef.current?.click() }}
+                    onClick={(e) => { e.stopPropagation(); setShowCamera(true) }}
                     disabled={processingImages || galleryItems.length >= MAX_IMAGES}
                     className="thsj-btn thsj-btn-ghost px-3 py-1.5 text-xs disabled:opacity-60"
                   >
@@ -1685,6 +1685,13 @@ export default function PostForm({
           </button>
         </div>
       </form>
+
+      {showCamera ? (
+        <CameraModal
+          onCapture={(file) => { void addImageFiles([file]) }}
+          onClose={() => setShowCamera(false)}
+        />
+      ) : null}
     </section>
   )
 }
