@@ -16,7 +16,7 @@ export default function EmptyState({
   return (
     <div className="thsj-panel border-dashed px-6 py-12 text-center sm:px-10">
       <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[var(--brand-accent-soft)]">
-        <img src="/brand-mark-thsj.svg" alt="THSJ" className="h-7 w-7" />
+        <img src="/icon.svg" alt="THSJ" className="h-7 w-7" />
       </div>
       <h2 className="text-xl font-semibold text-[var(--foreground)] sm:text-2xl">{title}</h2>
       <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-[var(--foreground-muted)]">{description}</p>

@@ -46,9 +46,15 @@ export default function PostCard({
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-linear-to-t from-black/25 to-transparent" />
         </div>
       ) : (
-        <div className="relative flex aspect-square items-center justify-center bg-[var(--background-muted)] text-xs text-[var(--foreground-muted)]">
+        <div className="relative flex aspect-square flex-col items-center justify-center gap-2 bg-[var(--background-muted)]">
           {imageOverlay ? <div className="absolute right-2 top-2 z-10">{imageOverlay}</div> : null}
-          Sin imagen
+          <img
+            src="/icon.svg"
+            alt=""
+            aria-hidden="true"
+            className="h-14 w-14 opacity-40 sm:h-16 sm:w-16"
+          />
+          <span className="text-xs text-[var(--foreground-muted)]">Sin imagen</span>
         </div>
       )}
 

@@ -67,17 +67,17 @@ Hierarchy rules:
 ## 4. Logo system
 
 Primary assets:
-- `public/brand-wordmark.svg`
-- `public/brand-mark-thsj.svg`
-- `public/logo-navbar.svg`
-- `public/favicon.svg`
-- `public/app-icon-placeholder.svg`
+- `public/logo-navbar.svg` (source of truth; the icon-only mark and every favicon/touch-icon are generated from it via `scripts/generate-icons.ts`)
+- `public/icon.svg` (generated compact mark)
+- `public/favicon.ico`, `public/favicon-16x16.png`, `public/favicon-32x32.png`, `public/apple-touch-icon.png` (generated)
 
 Usage:
-- Navbar: `logo-navbar.svg` + mark lockup.
-- Compact use (buttons, badges, app tile): `brand-mark-thsj.svg`.
-- Browser tabs: `favicon.svg`.
-- Placeholder app icon and apple icon: `app-icon-placeholder.svg`.
+- Navbar desktop: `logo-navbar.svg` (full wordmark lockup).
+- Navbar mobile / compact use (buttons, badges, empty states, image placeholders): `icon.svg`.
+- Browser tabs: `favicon.ico` + `favicon-16x16.png` / `favicon-32x32.png`.
+- Apple touch icon: `apple-touch-icon.png`.
+
+Any other logo/icon file in `public/` is not wired into the app; do not reintroduce assets there without also wiring them into the code that would render them.
 
 Do not:
 - stretch logos

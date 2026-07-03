@@ -547,8 +547,14 @@ export default function PostDetailPage() {
               ) : null}
             </div>
           ) : (
-            <div className="flex aspect-square items-center justify-center bg-(--background-muted) text-sm text-(--foreground-muted)">
-              Sin imagen disponible
+            <div className="flex aspect-square flex-col items-center justify-center gap-2 bg-(--background-muted)">
+              <img
+                src="/icon.svg"
+                alt=""
+                aria-hidden="true"
+                className="h-20 w-20 opacity-40"
+              />
+              <span className="text-sm text-(--foreground-muted)">Sin imagen disponible</span>
             </div>
           )}
 
