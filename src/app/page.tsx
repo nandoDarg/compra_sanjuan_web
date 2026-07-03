@@ -19,6 +19,13 @@ import {
 } from '@/lib/hierarchical-categories'
 import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
 import { expandSearchQuery, buildSupabaseOrFilter } from '@/lib/search/expand-query'
+import type { SortOption } from '@/lib/search/sort-option'
+import {
+  combineRelevanceScore,
+  type RelevanceAuxData,
+  type VehicleDetailsCompleteness,
+} from '@/lib/search/relevance-score'
+import { isVehicleCategory } from '@/lib/vehicle-details'
 import { buildFavoritesMap, fetchFavoritePostIds, toggleFavorite } from '@/lib/favorites'
 
 type Post = {
@@ -33,9 +40,9 @@ type Post = {
   location_department: string | null
   image_url: string | null
   created_at: string
+  user_id: string
 }
 
-type SortOption = 'recent' | 'price-asc' | 'price-desc'
 type FallbackMode = 'none' | 'similar' | 'history'
 type SearchHistoryRecord = { term: string; timestamp: string }
 type InteractionHistoryRecord = {
@@ -53,12 +60,13 @@ type CategoryStat = {
 }
 
 const POSTS_SELECT_WITH_SUBCATEGORY =
-  'id,title,description,price,category,subcategory,condition,location_department,image_url,created_at'
+  'id,title,description,price,category,subcategory,condition,location_department,image_url,created_at,user_id'
 
 const POSTS_SELECT_LEGACY =
-  'id,title,description,price,category,condition,location_department,image_url,created_at'
+  'id,title,description,price,category,condition,location_department,image_url,created_at,user_id'
 
 const SUGGESTION_LIMIT = 5
+const CANDIDATE_LIMIT = 180
 const HISTORY_MAX_ITEMS = 12
 const INTERACTIONS_MAX_ITEMS = 40
 const SEARCH_HISTORY_STORAGE_KEY = 'thsj:search-history'
@@ -248,6 +256,18 @@ function HomeContent() {
   const [interactionPostIds, setInteractionPostIds] = useState<Set<string>>(new Set())
   const lastTrackedSearchQueryRef = useRef('')
   const loadRequestIdRef = useRef(0)
+  const sortManuallySetRef = useRef(false)
+
+  const handleSortChange = useCallback((value: SortOption) => {
+    sortManuallySetRef.current = true
+    setSortBy(value)
+  }, [])
+
+  useEffect(() => {
+    if (searchQuery.length > 0 && !sortManuallySetRef.current) {
+      setSortBy((current) => (current === 'recent' ? 'relevance' : current))
+    }
+  }, [searchQuery])
 
   const interactionCategoryPathFrequency = useMemo(() => {
     const frequency = new Map<string, number>()
@@ -499,6 +519,147 @@ function HomeContent() {
     loadCategories()
   }, [interactionCategoryPathFrequency, supabase])
 
+  const runFuzzySearch = useCallback(
+    async (rawQuery: string): Promise<Post[]> => {
+      const { data: fuzzyMatches, error: fuzzyError } = await supabase.rpc(
+        'search_posts_fuzzy',
+        { search_term: rawQuery }
+      )
+
+      if (fuzzyError || !fuzzyMatches || fuzzyMatches.length === 0) {
+        return []
+      }
+
+      const similarityByPostId = new Map<string, number>(
+        (fuzzyMatches as Array<{ post_id: string; similarity: number }>).map((row) => [
+          row.post_id,
+          row.similarity,
+        ])
+      )
+      const matchedIds = Array.from(similarityByPostId.keys())
+
+      let { data: matchedPostsData, error: matchedPostsError } = await supabase
+        .from('posts')
+        .select(POSTS_SELECT_WITH_SUBCATEGORY)
+        .in('id', matchedIds)
+
+      if (matchedPostsError && isMissingSubcategoryColumnError(matchedPostsError)) {
+        const legacyResult = await supabase
+          .from('posts')
+          .select(POSTS_SELECT_LEGACY)
+          .in('id', matchedIds)
+
+        matchedPostsError = legacyResult.error
+        matchedPostsData = (legacyResult.data ?? []).map((post) => ({
+          ...post,
+          subcategory: null,
+        }))
+      }
+
+      if (matchedPostsError) {
+        return []
+      }
+
+      const candidates = (matchedPostsData ?? []).map((post) => ({
+        ...post,
+        ...resolveCategorySelection(post.category, post.subcategory),
+      }))
+
+      const filtered = candidates.filter(
+        (post) =>
+          (selectedCategory === 'Todas' || post.category === selectedCategory) &&
+          matchesSubcategoryFilter(post) &&
+          (!selectedCondition || post.condition === selectedCondition)
+      )
+
+      return filtered
+        .sort((a, b) => (similarityByPostId.get(b.id) ?? 0) - (similarityByPostId.get(a.id) ?? 0))
+        .slice(0, 24)
+    },
+    [supabase, selectedCategory, selectedCondition, matchesSubcategoryFilter]
+  )
+
+  const applyRelevanceRanking = useCallback(
+    async (candidates: Post[], normalizedQuery: string, queryTokens: string[]) => {
+      if (candidates.length === 0) {
+        return candidates
+      }
+
+      const candidateIds = candidates.map((post) => post.id)
+      const candidateUserIds = Array.from(new Set(candidates.map((post) => post.user_id)))
+      const vehicleCandidateIds = candidates
+        .filter((post) => isVehicleCategory(post.category))
+        .map((post) => post.id)
+
+      const [favoritesResult, imagesResult, sellerPostsResult, vehicleDetailsResult] =
+        await Promise.all([
+          supabase.rpc('get_post_favorite_counts', { post_ids: candidateIds }),
+          supabase.from('post_images').select('post_id').in('post_id', candidateIds),
+          supabase.from('posts').select('user_id').in('user_id', candidateUserIds),
+          vehicleCandidateIds.length > 0
+            ? supabase
+                .from('vehicle_details')
+                .select('post_id,brand,model,year,mileage,fuel_type,transmission')
+                .in('post_id', vehicleCandidateIds)
+            : Promise.resolve({ data: [], error: null }),
+        ])
+
+      const favoriteCountsByPostId = new Map<string, number>()
+      if (!favoritesResult.error) {
+        for (const row of favoritesResult.data ?? []) {
+          favoriteCountsByPostId.set(row.post_id, Number(row.favorite_count))
+        }
+      }
+
+      const imageCountByPostId = new Map<string, number>()
+      if (!imagesResult.error) {
+        for (const row of imagesResult.data ?? []) {
+          imageCountByPostId.set(row.post_id, (imageCountByPostId.get(row.post_id) ?? 0) + 1)
+        }
+      }
+
+      const sellerPostCountByUserId = new Map<string, number>()
+      if (!sellerPostsResult.error) {
+        for (const row of sellerPostsResult.data ?? []) {
+          sellerPostCountByUserId.set(
+            row.user_id,
+            (sellerPostCountByUserId.get(row.user_id) ?? 0) + 1
+          )
+        }
+      }
+
+      const vehicleDetailsByPostId = new Map<string, VehicleDetailsCompleteness>()
+      if (!vehicleDetailsResult.error) {
+        for (const row of vehicleDetailsResult.data ?? []) {
+          vehicleDetailsByPostId.set(row.post_id, {
+            hasBrand: Boolean(row.brand),
+            hasModel: Boolean(row.model),
+            hasYear: Boolean(row.year),
+            hasMileage: row.mileage != null,
+            hasFuelType: Boolean(row.fuel_type),
+            hasTransmission: Boolean(row.transmission),
+          })
+        }
+      }
+
+      const aux: RelevanceAuxData = {
+        favoriteCountsByPostId,
+        sellerPostCountByUserId,
+        imageCountByPostId,
+        vehicleDetailsByPostId,
+      }
+
+      return [...candidates]
+        .map((post) => ({
+          post,
+          score: combineRelevanceScore(post, aux, normalizedQuery, queryTokens),
+        }))
+        .sort((a, b) => b.score - a.score)
+        .map((item) => item.post)
+    },
+    [supabase]
+  )
+
   useEffect(() => {
     const loadPosts = async () => {
       const requestId = loadRequestIdRef.current + 1
@@ -521,6 +682,8 @@ function HomeContent() {
         query = query.order('price', { ascending: true })
       } else if (sortBy === 'price-desc') {
         query = query.order('price', { ascending: false })
+      } else if (sortBy === 'relevance') {
+        query = query.order('created_at', { ascending: false }).limit(CANDIDATE_LIMIT)
       } else {
         query = query.order('created_at', { ascending: false })
       }
@@ -545,6 +708,10 @@ function HomeContent() {
           legacyQuery = legacyQuery.order('price', { ascending: true })
         } else if (sortBy === 'price-desc') {
           legacyQuery = legacyQuery.order('price', { ascending: false })
+        } else if (sortBy === 'relevance') {
+          legacyQuery = legacyQuery
+            .order('created_at', { ascending: false })
+            .limit(CANDIDATE_LIMIT)
         } else {
           legacyQuery = legacyQuery.order('created_at', { ascending: false })
         }
@@ -594,98 +761,131 @@ function HomeContent() {
         }
 
         if (postsForDisplay.length > 0) {
-          setPosts(postsForDisplay)
+          if (sortBy === 'relevance') {
+            const normalizedQuery = normalizeText(searchQuery)
+            const queryTokens = splitTokens(searchQuery)
+            const rankedPosts = await applyRelevanceRanking(
+              postsForDisplay,
+              normalizedQuery,
+              queryTokens
+            )
+
+            if (requestId !== loadRequestIdRef.current) {
+              return
+            }
+
+            setPosts(rankedPosts)
+          } else {
+            setPosts(postsForDisplay)
+          }
         } else if (searchQuery || selectedCategory !== 'Todas' || selectedSubcategory !== 'Todas') {
-          const fallbackBaseQuery = supabase
-            .from('posts')
-            .select(POSTS_SELECT_WITH_SUBCATEGORY)
-            .order('created_at', { ascending: false })
-            .limit(80)
-
-          let { data: withCategoryData, error: fallbackError } = await fallbackBaseQuery
-
-          if (fallbackError && isMissingSubcategoryColumnError(fallbackError)) {
-            const fallbackLegacyQuery = supabase
-              .from('posts')
-              .select(POSTS_SELECT_LEGACY)
-              .order('created_at', { ascending: false })
-              .limit(80)
-
-            const fallbackLegacyResult = await fallbackLegacyQuery
-            fallbackError = fallbackLegacyResult.error
-            withCategoryData = (fallbackLegacyResult.data ?? []).map((post) => ({
-              ...post,
-              subcategory: null,
-            }))
-          }
-
-          if (fallbackError) {
-            setPosts([])
-            setFeedError('No se pudo cargar el feed. Revisa permisos de lectura publica en Supabase.')
-            setLoading(false)
-            return
-          }
-
-          if (requestId !== loadRequestIdRef.current) {
-            return
-          }
-
-          const fallbackCandidates = (withCategoryData ?? []).map((post) => ({
-            ...post,
-            ...resolveCategorySelection(post.category, post.subcategory),
-          }))
-
-          const filteredFallbackCandidates = fallbackCandidates.filter(
-            (post) =>
-              (selectedCategory === 'Todas' || post.category === selectedCategory) &&
-              matchesSubcategoryFilter(post) &&
-              (!selectedCondition || post.condition === selectedCondition)
-          )
-
-          if (requestId !== loadRequestIdRef.current) {
-            return
-          }
-
-          const normalizedQuery = normalizeText(searchQuery)
-          const queryTokens = splitTokens(searchQuery)
-
-          const rankedPosts = filteredFallbackCandidates
-            .map((post) => ({
-              post,
-              score: scorePost(post, normalizedQuery, queryTokens),
-            }))
-            .sort((a, b) => b.score - a.score)
-
-          const similarPosts = rankedPosts
-            .filter((item) => item.score > 0)
-            .map((item) => item.post)
-
           let visibleFallbackPosts: Post[] = []
           let activeFallbackMode: FallbackMode = 'history'
 
-          if (similarPosts.length > 0) {
-            visibleFallbackPosts = similarPosts.slice(0, 24)
-            activeFallbackMode = 'similar'
-          } else {
-            const categoryFrequency = filteredFallbackCandidates.reduce((map, current) => {
-              map.set(current.category, (map.get(current.category) ?? 0) + 1)
-              return map
-            }, new Map<string, number>())
+          // Capa 5: busqueda tolerante a errores tipograficos via trigramas
+          // (Postgres), sobre todo el catalogo (no solo los ultimos 80).
+          if (searchQuery) {
+            const fuzzyPosts = await runFuzzySearch(searchQuery)
 
-            visibleFallbackPosts = filteredFallbackCandidates
+            if (requestId !== loadRequestIdRef.current) {
+              return
+            }
+
+            if (fuzzyPosts.length > 0) {
+              visibleFallbackPosts = fuzzyPosts
+              activeFallbackMode = 'similar'
+            }
+          }
+
+          if (visibleFallbackPosts.length === 0) {
+            const fallbackBaseQuery = supabase
+              .from('posts')
+              .select(POSTS_SELECT_WITH_SUBCATEGORY)
+              .order('created_at', { ascending: false })
+              .limit(80)
+
+            let { data: withCategoryData, error: fallbackError } = await fallbackBaseQuery
+
+            if (fallbackError && isMissingSubcategoryColumnError(fallbackError)) {
+              const fallbackLegacyQuery = supabase
+                .from('posts')
+                .select(POSTS_SELECT_LEGACY)
+                .order('created_at', { ascending: false })
+                .limit(80)
+
+              const fallbackLegacyResult = await fallbackLegacyQuery
+              fallbackError = fallbackLegacyResult.error
+              withCategoryData = (fallbackLegacyResult.data ?? []).map((post) => ({
+                ...post,
+                subcategory: null,
+              }))
+            }
+
+            if (fallbackError) {
+              setPosts([])
+              setFeedError('No se pudo cargar el feed. Revisa permisos de lectura publica en Supabase.')
+              setLoading(false)
+              return
+            }
+
+            if (requestId !== loadRequestIdRef.current) {
+              return
+            }
+
+            const fallbackCandidates = (withCategoryData ?? []).map((post) => ({
+              ...post,
+              ...resolveCategorySelection(post.category, post.subcategory),
+            }))
+
+            const filteredFallbackCandidates = fallbackCandidates.filter(
+              (post) =>
+                (selectedCategory === 'Todas' || post.category === selectedCategory) &&
+                matchesSubcategoryFilter(post) &&
+                (!selectedCondition || post.condition === selectedCondition)
+            )
+
+            if (requestId !== loadRequestIdRef.current) {
+              return
+            }
+
+            const normalizedQuery = normalizeText(searchQuery)
+            const queryTokens = splitTokens(searchQuery)
+
+            const rankedPosts = filteredFallbackCandidates
               .map((post) => ({
                 post,
-                score: scoreByHistory(
-                  post,
-                  searchHistoryTerms,
-                  interactionCategoryPaths,
-                  interactionPostIds,
-                  categoryFrequency
-                ),
+                score: scorePost(post, normalizedQuery, queryTokens),
               }))
               .sort((a, b) => b.score - a.score)
+
+            const similarPosts = rankedPosts
+              .filter((item) => item.score > 0)
               .map((item) => item.post)
-              .slice(0, 24)
+
+            if (similarPosts.length > 0) {
+              visibleFallbackPosts = similarPosts.slice(0, 24)
+              activeFallbackMode = 'similar'
+            } else {
+              const categoryFrequency = filteredFallbackCandidates.reduce((map, current) => {
+                map.set(current.category, (map.get(current.category) ?? 0) + 1)
+                return map
+              }, new Map<string, number>())
+
+              visibleFallbackPosts = filteredFallbackCandidates
+                .map((post) => ({
+                  post,
+                  score: scoreByHistory(
+                    post,
+                    searchHistoryTerms,
+                    interactionCategoryPaths,
+                    interactionPostIds,
+                    categoryFrequency
+                  ),
+                }))
+                .sort((a, b) => b.score - a.score)
+                .map((item) => item.post)
+                .slice(0, 24)
+            }
           }
 
           setPosts(visibleFallbackPosts)
@@ -705,6 +905,8 @@ function HomeContent() {
 
     loadPosts()
   }, [
+    applyRelevanceRanking,
+    runFuzzySearch,
     interactionCategoryPaths,
     interactionPostIds,
     registerSearchTerm,
@@ -851,17 +1053,17 @@ function HomeContent() {
           searchQuery={searchQuery}
           selectedCategory={selectedCategory}
           selectedSubcategory={selectedSubcategory}
-          sortBy="recent"
+          sortBy={sortBy}
           onRemoveSearch={() => updateSearchQuery('')}
           onRemoveCategory={() => handleCategoryChange('Todas')}
           onRemoveSubcategory={() => updateCategoryFilters(selectedCategory, 'Todas')}
-          onRemoveSort={() => setSortBy('recent')}
+          onRemoveSort={() => handleSortChange('recent')}
         />
 
         {showFilterBar ? (
           <ContextualFilterBar
             sortBy={sortBy}
-            onSortChange={setSortBy}
+            onSortChange={handleSortChange}
             selectedCondition={selectedCondition}
             onConditionChange={updateCondition}
           />
@@ -870,7 +1072,9 @@ function HomeContent() {
       {fallbackMode !== 'none' ? (
         <div className="thsj-panel p-4 sm:p-5">
           <p className="text-sm font-semibold text-foreground">
-            No encontramos &quot;{searchQuery}&quot; — explorá esto que encontramos para vos:
+            {fallbackMode === 'similar'
+              ? <>No encontramos una coincidencia exacta de &quot;{searchQuery}&quot;, pero esto puede interesarte:</>
+              : <>No encontramos resultados para &quot;{searchQuery}&quot;. Mientras tanto, esto podría interesarte:</>}
           </p>
           {fallbackCategorySuggestions.length > 0 ? (
             <div className="mt-3 flex flex-wrap gap-2">

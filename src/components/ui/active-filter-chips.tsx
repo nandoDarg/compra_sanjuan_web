@@ -1,4 +1,4 @@
-type SortOption = 'recent' | 'price-asc' | 'price-desc'
+import type { SortOption } from '@/lib/search/sort-option'
 
 type ActiveFilterChipsProps = {
   searchQuery: string
@@ -12,6 +12,7 @@ type ActiveFilterChipsProps = {
 }
 
 const sortLabels: Record<Exclude<SortOption, 'recent'>, string> = {
+  relevance: 'Mas relevantes',
   'price-asc': 'Menor precio',
   'price-desc': 'Mayor precio',
 }

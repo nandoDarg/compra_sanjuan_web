@@ -1,4 +1,5 @@
 import { SYNONYM_MAP } from './synonym-map'
+import { generateWordVariants } from './stem'
 
 // ─── Stop words ──────────────────────────────────────────────────────────────
 
@@ -16,7 +17,7 @@ export function normalizeInput(input: string): string {
   return input
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[̀-ͯ]/g, '')
     .trim()
     .split(/\s+/)
     .filter((token) => token.length > 0 && !STOP_WORDS.has(token))
@@ -53,18 +54,25 @@ function levenshtein(a: string, b: string): number {
   return prev[n]
 }
 
-// ─── Fuzzy match against synonym-map keys ────────────────────────────────────
+// ─── Fuzzy match against synonym-map keys (Capas 3/4) ────────────────────────
 
 const MAX_EDIT_DISTANCE = 2
+const MIN_LENGTH_FOR_SYNONYM_LOOKUP = 3
 
 /**
- * Devuelve la clave canónica del mapa si el input está a ≤ 2 ediciones de
- * distancia de ella. Si no hay match, devuelve null.
+ * Devuelve la clave canónica del mapa si `word` (o alguna de sus variantes
+ * morfológicas) está a <= 2 ediciones de distancia de ella, o coincide
+ * exacto con una clave o con cualquier sinónimo de la lista. Si no hay
+ * match, devuelve null.
  */
-function fuzzyMatchCanonical(normalized: string): string | null {
+function fuzzyMatchCanonical(word: string): string | null {
+  if (word.length < MIN_LENGTH_FOR_SYNONYM_LOOKUP) {
+    return null
+  }
+
   // Primero intenta coincidencia exacta en las claves
-  if (normalized in SYNONYM_MAP) {
-    return normalized
+  if (word in SYNONYM_MAP) {
+    return word
   }
 
   // Luego intenta coincidencia exacta en cualquier sinónimo de cada entrada
@@ -73,8 +81,8 @@ function fuzzyMatchCanonical(normalized: string): string | null {
       const normSynonym = synonym
         .toLowerCase()
         .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-      if (normSynonym === normalized) {
+        .replace(/[̀-ͯ]/g, '')
+      if (normSynonym === word) {
         return key
       }
     }
@@ -85,7 +93,7 @@ function fuzzyMatchCanonical(normalized: string): string | null {
   let bestDist = MAX_EDIT_DISTANCE + 1
 
   for (const key of Object.keys(SYNONYM_MAP)) {
-    const dist = levenshtein(normalized, key)
+    const dist = levenshtein(word, key)
     if (dist <= MAX_EDIT_DISTANCE && dist < bestDist) {
       bestDist = dist
       bestKey = key
@@ -97,12 +105,23 @@ function fuzzyMatchCanonical(normalized: string): string | null {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
+const MAX_EXPANDED_TERMS = 24
+
 /**
- * Toma el input crudo del usuario y devuelve un array de términos de búsqueda.
+ * Toma el input crudo del usuario y devuelve un array de términos de
+ * búsqueda, combinando 4 capas (aditivas, no excluyentes):
  *
- * - Si el input coincide (exacto o fuzzy) con una clave canónica del mapa de
- *   sinónimos, devuelve la lista de sinónimos expandida.
- * - Si no hay match semántico, devuelve el input normalizado como único término.
+ * - Capa 1 (coincidencia exacta): cada palabra normalizada, y la frase
+ *   completa cuando hay mas de una palabra (para priorizar matches de frase).
+ * - Capa 2 (normalizacion linguistica): variantes de singular/plural y
+ *   diminutivos de cada palabra (ver `stem.ts`), que gracias al ILIKE por
+ *   substring alcanzan para relacionar "perro"/"perros"/"perrito"/"perritos".
+ * - Capas 3/4 (variantes frecuentes + sinonimos): la palabra y sus variantes
+ *   morfologicas se buscan en `SYNONYM_MAP` (exacto o fuzzy); si hay match
+ *   se suman TODOS los sinonimos de esa entrada a la lista de terminos.
+ *
+ * A diferencia de la version anterior, esto es aditivo: nunca se pierde la
+ * palabra original ni el resto de los tokens de la query.
  */
 export function expandSearchQuery(input: string): string[] {
   const normalized = normalizeInput(input)
@@ -111,18 +130,42 @@ export function expandSearchQuery(input: string): string[] {
     return []
   }
 
-  // Intenta expandir el primer token significativo (el término más relevante)
-  const firstToken = normalized.split(' ')[0]
-  const canonical = fuzzyMatchCanonical(firstToken) ?? fuzzyMatchCanonical(normalized)
+  const tokens = normalized.split(' ').filter(Boolean)
+  const terms = new Set<string>()
 
-  if (canonical !== null) {
-    // Devuelve los sinónimos tal como están en el mapa; el consumer construye
-    // los patrones ilike con ellos.
-    return SYNONYM_MAP[canonical]
+  // Capa 1: frase completa (prioriza coincidencias de frase exacta, ej.
+  // "golden retriever" como substring literal del titulo).
+  if (tokens.length > 1) {
+    terms.add(normalized)
   }
 
-  // Sin expansión: devuelve el input normalizado completo como único término
-  return [normalized]
+  for (const token of tokens) {
+    // Capa 1: la palabra tal cual la escribio el usuario.
+    terms.add(token)
+
+    // Capa 2: variantes morfologicas (singular/plural/diminutivo).
+    const variants = generateWordVariants(token)
+    for (const variant of variants) {
+      terms.add(variant)
+    }
+
+    // Capas 3/4: sinonimos, evaluados sobre la palabra y sus variantes.
+    const canonicalKeys = new Set<string>()
+    for (const candidate of variants) {
+      const canonical = fuzzyMatchCanonical(candidate)
+      if (canonical) {
+        canonicalKeys.add(canonical)
+      }
+    }
+
+    for (const key of canonicalKeys) {
+      for (const synonym of SYNONYM_MAP[key]) {
+        terms.add(synonym)
+      }
+    }
+  }
+
+  return Array.from(terms).slice(0, MAX_EXPANDED_TERMS)
 }
 
 /**

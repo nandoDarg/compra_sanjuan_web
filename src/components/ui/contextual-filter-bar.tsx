@@ -1,4 +1,4 @@
-type SortOption = 'recent' | 'price-asc' | 'price-desc'
+import type { SortOption } from '@/lib/search/sort-option'
 
 type ContextualFilterBarProps = {
   sortBy: SortOption
@@ -28,6 +28,7 @@ export default function ContextualFilterBar({
           className="thsj-input appearance-none py-1.5 pl-2.5 pr-7 text-xs"
           aria-label="Ordenar resultados"
         >
+          <option value="relevance">Más relevantes</option>
           <option value="recent">Más recientes</option>
           <option value="price-asc">Precio: menor a mayor</option>
           <option value="price-desc">Precio: mayor a menor</option>

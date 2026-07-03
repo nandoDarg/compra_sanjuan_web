@@ -292,6 +292,22 @@ Esta migracion:
 - habilita RLS y politicas para lectura publica y edicion del propio usuario
 - hace backfill de usuarios existentes con fallback `Usuario`
 
+## 3b) Conteo de favoritos para ordenamiento por relevancia
+
+`favorites` tiene RLS owner-only (cada usuario solo lee sus propios favoritos), asi que no hay forma de contar favoritos por publicacion de forma publica. Para el ordenamiento "Mas relevantes" del feed se agrego:
+
+- `docs/sql/20260702_get_post_favorite_counts.sql`
+
+Esta migracion crea `public.get_post_favorite_counts(post_ids uuid[])`, una funcion `security definer` que devuelve solo `post_id` + conteo agregado (nunca expone que usuario marco favorito), otorgada a `anon` y `authenticated`. Se llama desde el cliente con `supabase.rpc('get_post_favorite_counts', { post_ids: [...] })`.
+
+## 3c) Busqueda semantica por capas (Capa 5: fuzzy/trigramas)
+
+El buscador (`src/lib/search/expand-query.ts`) combina 4 capas en JS (coincidencia exacta por palabra, variantes de singular/plural/diminutivo en `src/lib/search/stem.ts`, y sinonimos via `SYNONYM_MAP`). Para tolerar errores de tipeo sobre palabras que no estan en el diccionario de sinonimos (ej. "retriver" en vez de "retriever"), se agrego:
+
+- `docs/sql/20260702b_search_posts_fuzzy.sql`
+
+Esta migracion instala `pg_trgm`, crea indices GIN de trigramas en `posts.title` y `posts.description`, y define `public.search_posts_fuzzy(search_term, similarity_threshold, result_limit)`, que devuelve `post_id` + `similarity` ordenado por similitud. Se usa desde `src/app/page.tsx` (`runFuzzySearch`) como capa adicional dentro del fallback de "0 resultados", antes de caer al ranking por historial/recencia.
+
 ## 4) CRUD que ya quedo cableado en frontend
 
 - Crear publicacion: /create-post
