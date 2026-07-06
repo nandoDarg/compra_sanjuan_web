@@ -11,10 +11,18 @@ export default function CameraModal({ onCapture, onClose }: CameraModalProps) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const streamRef = useRef<MediaStream | null>(null)
   const [ready, setReady] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(() =>
+    typeof navigator !== 'undefined' && !navigator.mediaDevices?.getUserMedia
+      ? 'La cámara solo está disponible en conexiones seguras (HTTPS). Accedé al sitio por HTTPS (por ejemplo vía ngrok) para poder usarla.'
+      : null
+  )
 
   useEffect(() => {
     let cancelled = false
+
+    if (!navigator.mediaDevices?.getUserMedia) {
+      return
+    }
 
     navigator.mediaDevices
       .getUserMedia({
