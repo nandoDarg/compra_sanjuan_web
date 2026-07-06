@@ -9,7 +9,9 @@
     "lint": "eslint",
     "cap:sync": "cap sync android",
     "cap:add": "cap add android",
-    "cap:open": "cap open android"
+    "cap:open": "cap open android",
+    "seed:marketplace": "tsx scripts/seed/seedDatabase.ts",
+    "seed:marketplace:clean": "tsx scripts/seed/seedDatabase.ts --clean"
   },
   "dependencies": {
     "@capacitor/android": "^8.3.4",

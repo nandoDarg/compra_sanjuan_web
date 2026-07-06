@@ -41,3 +41,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .npm-cache/
+
+# seed de datos de desarrollo (generado por npm run seed:marketplace)
+/public/test-images/
