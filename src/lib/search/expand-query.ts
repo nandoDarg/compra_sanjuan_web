@@ -59,11 +59,49 @@ function levenshtein(a: string, b: string): number {
 const MAX_EDIT_DISTANCE = 2
 const MIN_LENGTH_FOR_SYNONYM_LOOKUP = 3
 
+/** Cuantos caracteres iniciales comparten dos strings. */
+function sharedPrefixLength(a: string, b: string): number {
+  const max = Math.min(a.length, b.length)
+  let i = 0
+  while (i < max && a[i] === b[i]) {
+    i += 1
+  }
+  return i
+}
+
+const MIN_PREFIX_MATCH_LENGTH = 3
+const MIN_PREFIX_MATCH_RATIO = 0.6
+
+/**
+ * Encuentra una clave canónica cuando `word` comparte una raíz/prefijo
+ * significativo con ella (ej. "motoneta"/"motuli" → "moto"), aun cuando la
+ * distancia de edición total sea grande por la diferencia de longitud (algo
+ * que el Levenshtein de arriba no puede capturar). El umbral requerido es
+ * proporcional al largo de la clave, con un piso de 3 caracteres, para no
+ * generar falsos positivos con claves largas.
+ */
+function prefixMatchCanonical(word: string): string | null {
+  let bestKey: string | null = null
+  let bestPrefixLength = 0
+
+  for (const key of Object.keys(SYNONYM_MAP)) {
+    const shared = sharedPrefixLength(word, key)
+    const requiredLength = Math.max(MIN_PREFIX_MATCH_LENGTH, Math.ceil(key.length * MIN_PREFIX_MATCH_RATIO))
+
+    if (shared >= requiredLength && shared > bestPrefixLength) {
+      bestPrefixLength = shared
+      bestKey = key
+    }
+  }
+
+  return bestKey
+}
+
 /**
  * Devuelve la clave canónica del mapa si `word` (o alguna de sus variantes
- * morfológicas) está a <= 2 ediciones de distancia de ella, o coincide
- * exacto con una clave o con cualquier sinónimo de la lista. Si no hay
- * match, devuelve null.
+ * morfológicas) coincide exacto con una clave o con cualquier sinónimo de la
+ * lista, está a <= 2 ediciones de distancia de una clave, o comparte con ella
+ * una raíz/prefijo significativo. Si no hay match, devuelve null.
  */
 function fuzzyMatchCanonical(word: string): string | null {
   if (word.length < MIN_LENGTH_FOR_SYNONYM_LOOKUP) {
@@ -88,7 +126,7 @@ function fuzzyMatchCanonical(word: string): string | null {
     }
   }
 
-  // Finalmente fuzzy sobre las claves canónicas
+  // Fuzzy sobre las claves canónicas (errores de tipeo en palabras de largo similar)
   let bestKey: string | null = null
   let bestDist = MAX_EDIT_DISTANCE + 1
 
@@ -100,7 +138,13 @@ function fuzzyMatchCanonical(word: string): string | null {
     }
   }
 
-  return bestKey
+  if (bestKey) {
+    return bestKey
+  }
+
+  // Finalmente, coincidencia por raiz/prefijo (palabras derivadas mas largas,
+  // ej. "motoneta"/"motuli" comparten raiz con "moto" aunque difieran mucho en longitud)
+  return prefixMatchCanonical(word)
 }
 
 // ─── Public API ───────────────────────────────────────────────────────────────
