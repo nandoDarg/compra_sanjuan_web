@@ -97,6 +97,37 @@ npm run build
 
 Guia detallada en `docs/deploy-vercel.md`.
 
+## Flujo de ramas y Pull Requests
+
+`main` es siempre la version estable/publicada. Ningun cambio se sube directo a `main`: todo pasa primero por una rama propia y una vista previa (Preview Deployment de Vercel).
+
+**Tipos de rama:**
+
+```
+feature/<nombre-corto>   → funcionalidad nueva. Ej: feature/filtro-busqueda
+fix/<nombre-corto>        → arreglo de un bug no urgente. Ej: fix/buscador-trabado
+hotfix/<nombre-corto>      → arreglo urgente sobre produccion. Ej: hotfix/camara-no-abre
+```
+
+En minusculas, con guiones, sin tildes.
+
+**Ciclo de trabajo:**
+
+1. `git checkout main && git pull`
+2. `git checkout -b feature/<nombre-corto>`
+3. Desarrollar y probar en local (`npm run dev`).
+4. Commits chicos y descriptivos (mismo estilo que ya usa el historial: `feat:`, `fix:`, `docs:` + descripcion corta en español).
+5. `git push -u origin feature/<nombre-corto>` y abrir un Pull Request hacia `main`.
+6. Vercel genera automaticamente una vista previa (Preview Deployment) para ese PR — probar ahi todo lo que en local no se puede validar bien: mobile real, login/registro/recuperacion de password, subida de fotos, responsive.
+7. Si algo falla, corregir en la misma rama y subir de nuevo — la vista previa se actualiza sola.
+8. Recien cuando la vista previa esta validada, mergear el PR a `main` (Vercel despliega produccion automaticamente) y borrar la rama.
+
+**Cosas a tener en cuenta mientras se prueba en una vista previa:**
+
+- Todos los entornos (local, preview y produccion) comparten la misma base de datos de Supabase — no hacer pruebas destructivas (borrar cuentas o publicaciones ajenas) en una vista previa. Para poblar datos de prueba, usar `npm run seed:marketplace` (y `npm run seed:marketplace:clean` para borrarlos despues).
+- Cualquier cambio de base de datos que la rama necesite (nuevo SQL en `docs/sql/`) se aplica a mano en Supabase **antes** de abrir el Pull Request, no despues del merge.
+- Una funcionalidad por rama — evitar mezclar cambios sin relacion entre si en el mismo PR/commit.
+
 ## Android wrapper
 
 Este proyecto usa Capacitor como wrapper Android remoto sobre la app desplegada en Vercel.
@@ -123,6 +154,6 @@ Estado wrapper Android:
 
 El proyecto en Vercel debe estar vinculado al repositorio oficial:
 
-- `nandoDarg/tratohechoSJ`
+- `nandoDarg/compra_sanjuan_web`
 
 No usar repositorios espejo para deploy, porque desincronizan rutas/features y generan diferencias entre produccion y `main`.

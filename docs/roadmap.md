@@ -5,7 +5,7 @@ Ultima actualizacion: Junio 2026.
 ## Estado actual
 
 - MVP web en produccion, funcional y validado end-to-end.
-- Deploy oficial en Vercel sobre `nandoDarg/tratohechoSJ`.
+- Deploy oficial en Vercel sobre `nandoDarg/compra_sanjuan_web`.
 - Exploracion publica habilitada para marketplace (`/` y `/post/[id]`).
 - Gestion de publicaciones autenticada (`/create-post`, `/my-posts`, `/my-posts/[id]/edit`).
 - Contacto vendedor por WhatsApp implementado.
