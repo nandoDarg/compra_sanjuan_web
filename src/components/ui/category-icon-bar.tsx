@@ -1,10 +1,17 @@
 'use client'
 
-import { CATEGORY_TREE } from '@/lib/hierarchical-categories'
+import {
+  CATEGORY_TREE,
+  getSubcategories,
+  getTertiarySubcategories,
+  resolveCategorySelection,
+} from '@/lib/hierarchical-categories'
 
 type CategoryIconBarProps = {
   selectedCategory: string
+  selectedSubcategory: string
   onSelectCategory: (category: string) => void
+  onSelectSubcategory: (category: string, subcategory: string) => void
   className?: string
 }
 
@@ -55,40 +62,141 @@ const ROOT_ITEMS = [
 
 export default function CategoryIconBar({
   selectedCategory,
+  selectedSubcategory,
   onSelectCategory,
+  onSelectSubcategory,
   className,
 }: CategoryIconBarProps) {
+  // Mismo criterio de niveles que CategorySidebar (escritorio), pero
+  // renderizado como chips horizontales en vez de lista vertical.
+  const resolved =
+    selectedCategory !== 'Todas' && selectedSubcategory !== 'Todas'
+      ? resolveCategorySelection(selectedCategory, selectedSubcategory)
+      : null
+
+  const isAtRoot = selectedCategory === 'Todas'
+  const isAtCategoryLevel = !isAtRoot && selectedSubcategory === 'Todas'
+  const isAtSubcategoryLevel = !isAtRoot && !isAtCategoryLevel
+
+  const resolvedSubcategory = resolved?.subcategory ?? null
+  const isAtTertiary = Boolean(resolved?.tertiarySubcategory)
+  const browsedSub = resolvedSubcategory ?? (isAtSubcategoryLevel ? selectedSubcategory : null)
+  const tertiaryChildren = browsedSub ? getTertiarySubcategories(selectedCategory, browsedSub) : []
+
+  const treeSubcategories = isAtCategoryLevel ? getSubcategories(selectedCategory) : []
+
+  const chipClass = (isActive: boolean) =>
+    [
+      'thsj-chip shrink-0',
+      isActive ? 'border-(--brand-primary) bg-(--brand-primary) text-white' : '',
+    ].join(' ')
+
   return (
-    <div className={['flex', className ?? ''].join(' ')}>
-      {ROOT_ITEMS.map(({ name, icon }) => {
-        const isActive = name === selectedCategory
-        return (
-          <button
-            key={name}
-            type="button"
-            onClick={() => onSelectCategory(name)}
-            aria-pressed={isActive}
-            aria-label={name}
-            className={[
-              'flex flex-1 flex-col items-center gap-0.5 rounded-xl py-2 px-0.5 text-center transition',
-              isActive
-                ? 'text-(--brand-primary)'
-                : 'text-(--foreground-muted) hover:text-foreground',
-            ].join(' ')}
-          >
-            {icon}
-            <span className="text-[10px] font-semibold leading-tight tracking-tight">
-              {name}
-            </span>
-            <span
+    <div className={className}>
+      <div className="flex">
+        {ROOT_ITEMS.map(({ name, icon }) => {
+          const isActive = name === selectedCategory
+          return (
+            <button
+              key={name}
+              type="button"
+              onClick={() => onSelectCategory(name)}
+              aria-pressed={isActive}
+              aria-label={name}
               className={[
-                'h-0.5 w-4 rounded-full transition-all',
-                isActive ? 'bg-(--brand-primary)' : 'bg-transparent',
+                'flex flex-1 flex-col items-center gap-0.5 rounded-xl py-2 px-0.5 text-center transition',
+                isActive
+                  ? 'text-(--brand-primary)'
+                  : 'text-(--foreground-muted) hover:text-foreground',
               ].join(' ')}
-            />
+            >
+              {icon}
+              <span className="text-[10px] font-semibold leading-tight tracking-tight">
+                {name}
+              </span>
+              <span
+                className={[
+                  'h-0.5 w-4 rounded-full transition-all',
+                  isActive ? 'bg-(--brand-primary)' : 'bg-transparent',
+                ].join(' ')}
+              />
+            </button>
+          )
+        })}
+      </div>
+
+      {isAtCategoryLevel && treeSubcategories.length > 0 ? (
+        <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            type="button"
+            onClick={() => onSelectSubcategory(selectedCategory, 'Todas')}
+            className={chipClass(false)}
+          >
+            Todas
           </button>
-        )
-      })}
+          {treeSubcategories.map((sub) => (
+            <button
+              key={sub.name}
+              type="button"
+              onClick={() => onSelectSubcategory(selectedCategory, sub.name)}
+              className={chipClass(false)}
+            >
+              {sub.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {isAtSubcategoryLevel && !isAtTertiary && tertiaryChildren.length > 0 ? (
+        <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            type="button"
+            onClick={() => onSelectSubcategory(selectedCategory, browsedSub!)}
+            className={chipClass(false)}
+          >
+            Todas
+          </button>
+          {tertiaryChildren.map((tertiary) => (
+            <button
+              key={tertiary.name}
+              type="button"
+              onClick={() =>
+                onSelectSubcategory(selectedCategory, `${browsedSub} > ${tertiary.name}`)
+              }
+              className={chipClass(false)}
+            >
+              {tertiary.name}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {isAtTertiary && tertiaryChildren.length > 0 ? (
+        <div className="mt-2 flex items-center gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <button
+            type="button"
+            onClick={() => onSelectSubcategory(selectedCategory, browsedSub!)}
+            className={chipClass(false)}
+          >
+            Todas
+          </button>
+          {tertiaryChildren.map((tertiary) => {
+            const isActive = resolved?.tertiarySubcategory === tertiary.name
+            return (
+              <button
+                key={tertiary.name}
+                type="button"
+                onClick={() =>
+                  onSelectSubcategory(selectedCategory, `${browsedSub} > ${tertiary.name}`)
+                }
+                className={chipClass(isActive)}
+              >
+                {tertiary.name}
+              </button>
+            )
+          })}
+        </div>
+      ) : null}
     </div>
   )
 }

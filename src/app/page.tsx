@@ -1051,7 +1051,9 @@ function HomeContent() {
       <div className="flex min-w-0 flex-col gap-3 lg:order-2">
         <CategoryIconBar
           selectedCategory={selectedCategory}
+          selectedSubcategory={selectedSubcategory}
           onSelectCategory={handleCategoryChange}
+          onSelectSubcategory={handleSubcategoryChange}
           className="lg:hidden"
         />
 
