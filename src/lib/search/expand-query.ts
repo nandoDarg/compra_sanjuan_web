@@ -1,4 +1,4 @@
-import { SYNONYM_MAP } from './synonym-map'
+import { SYNONYM_MAP, ABBREVIATIONS } from './synonym-map'
 import { generateWordVariants } from './stem'
 
 // ─── Stop words ──────────────────────────────────────────────────────────────
@@ -108,6 +108,13 @@ function fuzzyMatchCanonical(word: string): string | null {
     return null
   }
 
+  // Abreviaturas coloquiales conocidas (ej. "celu" -> "celular"): match
+  // directo, sin heuristica, para casos que el fuzzy/prefijo de abajo no
+  // llega a cubrir por la diferencia de longitud.
+  if (word in ABBREVIATIONS) {
+    return ABBREVIATIONS[word]
+  }
+
   // Primero intenta coincidencia exacta en las claves
   if (word in SYNONYM_MAP) {
     return word
@@ -149,7 +156,11 @@ function fuzzyMatchCanonical(word: string): string | null {
 
 // ─── Public API ───────────────────────────────────────────────────────────────
 
-const MAX_EXPANDED_TERMS = 24
+// Subido de 24 a 40: las entradas de SYNONYM_MAP ahora incluyen mas marcas/
+// modelos por concepto (celular, computadora, televisor, camioneta), asi que
+// una consulta de mas de una palabra llega antes al techo anterior. El OR
+// resultante sigue siendo barato para el tamano de catalogo de este proyecto.
+const MAX_EXPANDED_TERMS = 40
 
 /**
  * Toma el input crudo del usuario y devuelve un array de términos de

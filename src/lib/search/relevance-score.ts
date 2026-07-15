@@ -59,6 +59,10 @@ const RELEVANCE_WEIGHTS_DESIGN = {
   favorites: 10,
   sellerStanding: 5,
   quality: 5,
+  // Señal deliberadamente baja: la expansión conceptual (marca/modelo -> su
+  // concepto, ej. "iPhone" al buscar "celular") es una señal adicional, no
+  // debe superar nunca a un match literal de `search`.
+  conceptual: 8,
 } as const
 
 type RelevanceFactor = keyof typeof RELEVANCE_WEIGHTS_DESIGN
@@ -70,6 +74,7 @@ const ACTIVE_FACTORS: readonly RelevanceFactor[] = [
   'favorites',
   'sellerStanding',
   'quality',
+  'conceptual',
 ]
 
 function computeActiveWeights(
@@ -164,6 +169,44 @@ export function scoreSearchMatch(
   return Math.min(1, raw / MAX_SEARCH_RAW_SCORE)
 }
 
+const CONCEPT_MATCH_SATURATION_COUNT = 3
+
+/**
+ * Puntua coincidencias que solo aparecen via expansion conceptual/de
+ * sinonimos (`expandSearchQuery`), no en el texto literal de la busqueda.
+ * Retornos decrecientes: con ~3 terminos expandidos encontrados ya alcanza
+ * el maximo, mismo patron que `scoreFavorites`.
+ */
+export function scoreConceptMatch(
+  post: RelevanceInputPost,
+  expandedTerms: string[]
+): number {
+  if (expandedTerms.length === 0) {
+    return 0
+  }
+
+  const title = normalizeText(post.title)
+  const description = normalizeText(post.description)
+
+  let matches = 0
+  for (const term of expandedTerms) {
+    const normalizedTerm = normalizeText(term)
+    if (normalizedTerm.length < 2) {
+      continue
+    }
+
+    if (title.includes(normalizedTerm) || description.includes(normalizedTerm)) {
+      matches += 1
+    }
+  }
+
+  if (matches <= 0) {
+    return 0
+  }
+
+  return Math.min(1, Math.log2(1 + matches) / Math.log2(1 + CONCEPT_MATCH_SATURATION_COUNT))
+}
+
 export function scoreRecency(createdAtIso: string, now?: number): number {
   return computeRecencyFactor(createdAtIso, now)
 }
@@ -251,7 +294,8 @@ export function combineRelevanceScore(
   aux: RelevanceAuxData,
   normalizedQuery: string,
   queryTokens: string[],
-  now?: number
+  now?: number,
+  expandedTerms: string[] = []
 ): number {
   const search = scoreSearchMatch(post, normalizedQuery, queryTokens)
   const recency = scoreRecency(post.created_at, now)
@@ -259,6 +303,7 @@ export function combineRelevanceScore(
   const sellerStanding = scoreSellerStanding(post.user_id, aux.sellerPostCountByUserId)
   const quality = scoreQuality(post, aux)
   const popularity = aux.popularityScoreByPostId?.get(post.id) ?? 0
+  const conceptual = scoreConceptMatch(post, expandedTerms)
 
   return (
     search * RELEVANCE_WEIGHTS.search +
@@ -266,6 +311,7 @@ export function combineRelevanceScore(
     favorites * RELEVANCE_WEIGHTS.favorites +
     sellerStanding * RELEVANCE_WEIGHTS.sellerStanding +
     quality * RELEVANCE_WEIGHTS.quality +
-    popularity * RELEVANCE_WEIGHTS.popularity
+    popularity * RELEVANCE_WEIGHTS.popularity +
+    conceptual * RELEVANCE_WEIGHTS.conceptual
   )
 }

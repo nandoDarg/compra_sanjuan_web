@@ -580,7 +580,12 @@ function HomeContent() {
   )
 
   const applyRelevanceRanking = useCallback(
-    async (candidates: Post[], normalizedQuery: string, queryTokens: string[]) => {
+    async (
+      candidates: Post[],
+      normalizedQuery: string,
+      queryTokens: string[],
+      expandedTerms: string[] = []
+    ) => {
       if (candidates.length === 0) {
         return candidates
       }
@@ -652,7 +657,7 @@ function HomeContent() {
       return [...candidates]
         .map((post) => ({
           post,
-          score: combineRelevanceScore(post, aux, normalizedQuery, queryTokens),
+          score: combineRelevanceScore(post, aux, normalizedQuery, queryTokens, undefined, expandedTerms),
         }))
         .sort((a, b) => b.score - a.score)
         .map((item) => item.post)
@@ -669,12 +674,13 @@ function HomeContent() {
       setFeedError(null)
       setFallbackMode('none')
 
+      const expandedTerms = searchQuery ? expandSearchQuery(searchQuery) : []
+
       let query = supabase
         .from('posts')
         .select(POSTS_SELECT_WITH_SUBCATEGORY)
 
       if (searchQuery) {
-        const expandedTerms = expandSearchQuery(searchQuery)
         query = query.or(buildSupabaseOrFilter(expandedTerms, true))
       }
 
@@ -700,7 +706,6 @@ function HomeContent() {
           .select(POSTS_SELECT_LEGACY)
 
         if (searchQuery) {
-          const expandedTerms = expandSearchQuery(searchQuery)
           legacyQuery = legacyQuery.or(buildSupabaseOrFilter(expandedTerms, false))
         }
 
@@ -767,7 +772,8 @@ function HomeContent() {
             const rankedPosts = await applyRelevanceRanking(
               postsForDisplay,
               normalizedQuery,
-              queryTokens
+              queryTokens,
+              expandedTerms
             )
 
             if (requestId !== loadRequestIdRef.current) {
