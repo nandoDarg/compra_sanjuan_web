@@ -83,6 +83,12 @@ export default function Navbar() {
 
       if (nextValue) {
         params.set('q', nextValue)
+        // Una busqueda nueva desde la barra siempre corre sobre todo el
+        // catalogo: la categoria/subcategoria previamente seleccionada no
+        // debe restringirla. El usuario puede volver a filtrar por
+        // categoria despues, ya con los resultados de la busqueda en pantalla.
+        params.delete('cat')
+        params.delete('sub')
       } else {
         params.delete('q')
       }
@@ -434,7 +440,7 @@ export default function Navbar() {
         </div>
       </div>
 
-      {mounted && !isAuthRoute && pathname !== '/create-post'
+      {mounted && pathname === '/'
         ? createPortal(
             <Link
               href={mobilePublishHref}

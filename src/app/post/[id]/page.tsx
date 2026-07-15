@@ -466,7 +466,7 @@ export default function PostDetailPage() {
           href="/"
           className="thsj-btn thsj-btn-ghost inline-flex items-center gap-2 px-4 py-2 text-sm"
         >
-          ← Volver al feed
+          ← Volver
         </Link>
       </div>
 
