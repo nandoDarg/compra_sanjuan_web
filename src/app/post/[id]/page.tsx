@@ -16,6 +16,8 @@ import { isMissingSubcategoryColumnError } from '@/lib/post-subcategory-compat'
 import type { VehicleDetailsInput } from '@/lib/vehicle-details'
 import { isValidGoogleMapsUrl } from '@/lib/post-location'
 import { fetchFavoritePostIds, toggleFavorite } from '@/lib/favorites'
+import { ensureOperationForContact, fetchProfileReputation, type ProfileReputation } from '@/lib/operations'
+import StarRating from '@/components/ui/star-rating'
 
 type Post = {
   id: string
@@ -78,6 +80,7 @@ export default function PostDetailPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [shareFeedback, setShareFeedback] = useState<string | null>(null)
   const [sellerDisplayName, setSellerDisplayName] = useState('Usuario')
+  const [sellerReputation, setSellerReputation] = useState<ProfileReputation | null>(null)
   const [isFavorite, setIsFavorite] = useState(false)
   const [favoritePending, setFavoritePending] = useState(false)
   const [favoriteError, setFavoriteError] = useState<string | null>(null)
@@ -251,6 +254,36 @@ export default function PostDetailPage() {
   }, [post?.id, user])
 
   useEffect(() => {
+    let active = true
+
+    const loadSellerReputation = async () => {
+      if (!post?.user_id) {
+        if (active) {
+          setSellerReputation(null)
+        }
+        return
+      }
+
+      try {
+        const reputationByUserId = await fetchProfileReputation([post.user_id])
+        if (active) {
+          setSellerReputation(reputationByUserId.get(post.user_id) ?? null)
+        }
+      } catch {
+        if (active) {
+          setSellerReputation(null)
+        }
+      }
+    }
+
+    void loadSellerReputation()
+
+    return () => {
+      active = false
+    }
+  }, [post?.user_id])
+
+  useEffect(() => {
     if (!isZoomModalOpen) {
       return
     }
@@ -370,10 +403,23 @@ export default function PostDetailPage() {
       return
     }
 
+    if (!user) {
+      router.push(`/login?next=${encodeURIComponent(`/post/${post.id}`)}`)
+      return
+    }
+
     trackEvent(ANALYTICS_EVENTS.WHATSAPP_CLICKED, {
       post_id: post.id,
       category: post.category,
     })
+
+    // Registra la posible operacion en segundo plano; nunca debe bloquear ni
+    // romper el contacto real por WhatsApp si falla.
+    void ensureOperationForContact({
+      postId: post.id,
+      buyerId: user.id,
+      sellerId: post.user_id,
+    }).catch(() => {})
 
     const listingUrl = window.location.href
     const formattedPrice = new Intl.NumberFormat('es-AR', {
@@ -690,6 +736,14 @@ export default function PostDetailPage() {
             <div className="rounded-2xl border border-(--line) bg-(--background-elevated) p-4">
               <p className="text-xs uppercase tracking-wide text-(--foreground-muted)">Vendedor</p>
               <p className="mt-1 font-medium text-foreground">{sellerDisplayName || 'Usuario'}</p>
+              {sellerReputation ? (
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <StarRating value={sellerReputation.average_rating} size="sm" />
+                  <span className="text-xs text-(--foreground-muted)">
+                    ({sellerReputation.ratings_count} calificacion{sellerReputation.ratings_count === 1 ? '' : 'es'})
+                  </span>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -712,6 +766,7 @@ export default function PostDetailPage() {
               type="button"
               onClick={handleContact}
               disabled={!hasWhatsAppContact}
+              title={!user && hasWhatsAppContact ? 'Inicia sesion para contactar por WhatsApp' : undefined}
               className="thsj-btn thsj-btn-primary inline-flex items-center gap-2 px-4 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-60"
             >
               <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">

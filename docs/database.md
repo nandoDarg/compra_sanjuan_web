@@ -4,6 +4,19 @@ Ultima actualizacion: Junio 2026.
 
 Ejecuta este bloque en el SQL Editor de Supabase en este orden.
 
+## Como aplicar migraciones nuevas (metodo preferido)
+
+Cada migracion nueva se agrega como un archivo en `docs/sql/` (convencion `YYYYMMDD_descripcion.sql`). Para aplicarlas:
+
+```bash
+npm run db:migrate:status   # lista cuales faltan aplicar, sin tocar la base
+npm run db:migrate          # aplica las pendientes, en orden, cada una en su propia transaccion
+```
+
+Requiere `SUPABASE_DB_URL` en `.env.local` (conexion **directa** a Postgres, no el pooler — se copia desde Supabase Dashboard > Settings > Database > Connection string > pestaña "URI"). El script (`scripts/db/migrate.ts`) lleva registro de lo ya aplicado en una tabla `public._migrations`, y nunca corre solo (no esta cableado a ningun build/deploy) — es exclusivamente manual.
+
+Si no se tiene esa variable a mano, la alternativa sigue siendo copiar y pegar el `.sql` a mano en el SQL Editor de Supabase, como se hizo siempre en este proyecto.
+
 ## Nota importante
 
 Si aparece el error `42P01: relation \"public.posts\" does not exist`, ejecuta el bloque completo desde esta guia empezando por `create table if not exists public.posts`.
@@ -308,6 +321,22 @@ El buscador (`src/lib/search/expand-query.ts`) combina 4 capas en JS (coincidenc
 
 Esta migracion instala `pg_trgm`, crea indices GIN de trigramas en `posts.title` y `posts.description`, y define `public.search_posts_fuzzy(search_term, similarity_threshold, result_limit)`, que devuelve `post_id` + `similarity` ordenado por similitud. Se usa desde `src/app/page.tsx` (`runFuzzySearch`) como capa adicional dentro del fallback de "0 resultados", antes de caer al ranking por historial/recencia.
 
+## 3d) Reputacion bidireccional (operaciones + calificaciones)
+
+Como el marketplace no procesa pagos, no hay forma de saber automaticamente si una venta se concreto. Se agrego un sistema de reputacion basado exclusivamente en operaciones confirmadas por ambas partes:
+
+- `docs/sql/20260715_operations_reputation.sql`
+
+Esta migracion crea:
+
+- `public.operations`: una fila por "posible operacion" (comprador + vendedor + publicacion), creada automaticamente al presionar "Contactar por WhatsApp" (solo si el comprador esta logueado). RLS: solo las dos partes involucradas pueden verla; solo el comprador puede crearla; **no existe policy de update** — las confirmaciones se escriben unicamente via el RPC `confirm_operation`.
+- `public.operation_ratings`: una fila por calificacion (1-5 estrellas + 3 aspectos + comentario opcional), unica por operacion+usuario. RLS de lectura **publica** (los comentarios se muestran en el perfil de quien fue calificado); insercion restringida a un participante de una operacion ya `confirmed`, calificando a la contraparte correcta.
+- `public.confirm_operation(operation_id, confirmed)`: `security definer`. Unico camino para que comprador/vendedor respondan "¿se concreto?" — recalcula el estado (`confirmed` si ambas partes dicen que si, `closed` si alguna dice que no, sigue `pending` si falta una respuesta).
+- `public.expire_stale_operations()`: `security definer`. Marca como `expired` las operaciones `pending` de mas de 15 dias. Se llama de forma perezosa (no hay cron en este proyecto) cada vez que un usuario abre "Mis operaciones" — coincide con el disparador pedido ("cuando cualquiera de las partes ingrese nuevamente a la aplicacion").
+- `public.get_profile_reputation(user_ids)`: agrega promedio y cantidad de calificaciones recibidas por usuario, mismo patron de agregados en batch que `get_post_favorite_counts`.
+
+Los nombres de los 3 aspectos de calificacion (Comunicacion + 2 mas, que difieren segun se califique comprador o vendedor) viven en una sola fuente de verdad en el codigo: `src/lib/reputation-config.ts` — la base solo guarda 3 valores numericos genericos (`aspect_communication`, `aspect_two`, `aspect_three`).
+
 ## 4) CRUD que ya quedo cableado en frontend
 
 - Crear publicacion: /create-post
@@ -358,4 +387,4 @@ to public
 using (true);
 ```
 
-No se agrego chat, reputacion, favoritos, pagos ni IA.
+No se agrego chat ni pagos. Favoritos (seccion 3b) y reputacion (seccion 3d) ya estan implementados.

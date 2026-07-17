@@ -8,9 +8,11 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase-client'
 import { useAuth } from './auth-provider'
 import FeedbackModal from './ui/feedback-modal'
+import { usePendingOperations } from '@/lib/use-pending-operations'
 
 export default function Navbar() {
   const { user, loading } = useAuth()
+  const { pendingCount } = usePendingOperations()
   const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
@@ -196,6 +198,11 @@ export default function Navbar() {
               <circle cx="12" cy="8" r="4" />
             </svg>
             Cuenta
+            {pendingCount > 0 ? (
+              <span className="absolute -right-1.5 -top-1.5 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-(--brand-secondary) px-1 text-[11px] font-semibold text-white">
+                {pendingCount}
+              </span>
+            ) : null}
           </button>
 
           {isAccountOpen ? (
@@ -228,6 +235,19 @@ export default function Navbar() {
               >
                 Mis publicaciones
               </Link>
+              <Link
+                href="/mis-operaciones"
+                onClick={closeAccountDropdown}
+                className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-(--background-muted)"
+                role="menuitem"
+              >
+                Mis operaciones
+                {pendingCount > 0 ? (
+                  <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-(--brand-secondary) px-1 text-[11px] font-semibold text-white">
+                    {pendingCount}
+                  </span>
+                ) : null}
+              </Link>
 
               <div className="my-1 border-t border-(--line)" />
 
@@ -255,7 +275,7 @@ export default function Navbar() {
         </div>
       </>
     )
-  }, [closeAccountDropdown, isAuthRoute, isAccountOpen, loading, logout, user])
+  }, [closeAccountDropdown, isAuthRoute, isAccountOpen, loading, logout, pendingCount, user])
 
   return (
     <nav className="sticky top-0 z-30 border-b border-border bg-background/90 backdrop-blur-xl">
@@ -298,6 +318,11 @@ export default function Navbar() {
               <circle cx="12" cy="12" r="2.35" />
               <circle cx="12" cy="18" r="2.35" />
             </svg>
+            {pendingCount > 0 ? (
+              <span className="absolute -right-1 -top-1 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-(--brand-secondary) px-1 text-[11px] font-semibold text-white">
+                {pendingCount}
+              </span>
+            ) : null}
           </button>
 
           {isMenuOpen ? (
@@ -368,6 +393,19 @@ export default function Navbar() {
                     role="menuitem"
                   >
                     Mis publicaciones
+                  </Link>
+                  <Link
+                    href="/mis-operaciones"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex items-center justify-between rounded-lg px-3 py-2 text-sm font-medium text-foreground hover:bg-(--background-muted)"
+                    role="menuitem"
+                  >
+                    Mis operaciones
+                    {pendingCount > 0 ? (
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-(--brand-secondary) px-1 text-[11px] font-semibold text-white">
+                        {pendingCount}
+                      </span>
+                    ) : null}
                   </Link>
 
                   <div className="my-1 border-t border-(--line)" />
