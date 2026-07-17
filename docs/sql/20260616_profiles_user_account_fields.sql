@@ -70,5 +70,10 @@ to authenticated
 using (auth.uid() = user_id)
 with check (auth.uid() = user_id);
 
+-- Indice unico parcial: muchos perfiles existentes quedan con
+-- recovery_email = '' tras la normalizacion de arriba (nunca lo cargaron),
+-- y un indice unico comun los rechaza a todos entre si. Solo exige unicidad
+-- cuando el valor es un email real.
 create unique index if not exists profiles_recovery_email_key
-on public.profiles (recovery_email);
+on public.profiles (recovery_email)
+where recovery_email <> '';

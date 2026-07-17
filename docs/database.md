@@ -4,6 +4,19 @@ Ultima actualizacion: Junio 2026.
 
 Ejecuta este bloque en el SQL Editor de Supabase en este orden.
 
+## Como aplicar migraciones nuevas (metodo preferido)
+
+Cada migracion nueva se agrega como un archivo en `docs/sql/` (convencion `YYYYMMDD_descripcion.sql`). Para aplicarlas:
+
+```bash
+npm run db:migrate:status   # lista cuales faltan aplicar, sin tocar la base
+npm run db:migrate          # aplica las pendientes, en orden, cada una en su propia transaccion
+```
+
+Requiere `SUPABASE_DB_URL` en `.env.local` (conexion **directa** a Postgres, no el pooler — se copia desde Supabase Dashboard > Settings > Database > Connection string > pestaña "URI"). El script (`scripts/db/migrate.ts`) lleva registro de lo ya aplicado en una tabla `public._migrations`, y nunca corre solo (no esta cableado a ningun build/deploy) — es exclusivamente manual.
+
+Si no se tiene esa variable a mano, la alternativa sigue siendo copiar y pegar el `.sql` a mano en el SQL Editor de Supabase, como se hizo siempre en este proyecto.
+
 ## Nota importante
 
 Si aparece el error `42P01: relation \"public.posts\" does not exist`, ejecuta el bloque completo desde esta guia empezando por `create table if not exists public.posts`.
