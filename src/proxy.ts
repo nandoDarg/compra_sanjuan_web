@@ -8,7 +8,7 @@ function getSanitizedCurrentPath(request: NextRequest) {
   return `${request.nextUrl.pathname}${query ? `?${query}` : ''}`
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname, searchParams } = request.nextUrl
 
   if (pathname.startsWith('/auth/callback') || pathname.startsWith('/auth/confirm')) {
