@@ -3,8 +3,8 @@
 import Link from 'next/link'
 import { FormEvent, useEffect, useMemo, useRef, useState } from 'react'
 import CameraModal from './ui/camera-modal'
-import Cropper from 'react-easy-crop'
-import type { Area, Point } from 'react-easy-crop'
+import ImageCropModal, { type ImageCropCoordinates } from './ui/image-crop-modal'
+import { useImageCropQueue } from '@/hooks/use-image-crop-queue'
 import {
   CATEGORY_TREE,
   getSubcategories,
@@ -223,7 +223,7 @@ async function loadImageFromUrl(url: string) {
   return image
 }
 
-async function buildCroppedFile(imageUrl: string, cropArea: Area, baseName: string) {
+async function buildCroppedFile(imageUrl: string, cropArea: ImageCropCoordinates, baseName: string) {
   const image = await loadImageFromUrl(imageUrl)
   const canvas = document.createElement('canvas')
   canvas.width = Math.max(1, Math.round(cropArea.width))
@@ -236,8 +236,8 @@ async function buildCroppedFile(imageUrl: string, cropArea: Area, baseName: stri
 
   context.drawImage(
     image,
-    cropArea.x,
-    cropArea.y,
+    cropArea.left,
+    cropArea.top,
     cropArea.width,
     cropArea.height,
     0,
@@ -493,10 +493,8 @@ export default function PostForm({
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [draggingImageId, setDraggingImageId] = useState<string | null>(null)
   const [cropTarget, setCropTarget] = useState<CropTargetState | null>(null)
-  const [crop, setCrop] = useState<Point>({ x: 0, y: 0 })
-  const [cropZoom, setCropZoom] = useState(1)
-  const [croppedAreaPixels, setCroppedAreaPixels] = useState<Area | null>(null)
   const [applyingCrop, setApplyingCrop] = useState(false)
+  const cropQueue = useImageCropQueue()
   const [lastSavedSnapshotKey, setLastSavedSnapshotKey] = useState<string | null>(null)
   const imageInputRef = useRef<HTMLInputElement | null>(null)
   const cameraInputRef = useRef<HTMLInputElement | null>(null)
@@ -680,6 +678,8 @@ export default function PostForm({
       }))
 
       setGalleryItems((previous) => [...previous, ...preparedItems].slice(0, MAX_IMAGES))
+      cropQueue.enqueue(preparedItems.map((item) => ({ itemId: item.id, itemUrl: item.url })))
+      setCropTarget((current) => current ?? cropQueue.peekNext())
     }
 
     setProcessingImages(false)
@@ -775,12 +775,15 @@ export default function PostForm({
     setDraggingImageId(null)
   }
 
-  const handleCropComplete = (_: Area, areaPixels: Area) => {
-    setCroppedAreaPixels(areaPixels)
+  const closeCropTarget = () => {
+    if (cropTarget) {
+      cropQueue.dequeue(cropTarget.itemId)
+    }
+    setCropTarget(cropQueue.peekNext())
   }
 
-  const applyCropOnCurrentImage = async () => {
-    if (!cropTarget || !croppedAreaPixels) {
+  const applyCropOnCurrentImage = async (coordinates: ImageCropCoordinates) => {
+    if (!cropTarget) {
       return
     }
 
@@ -788,7 +791,7 @@ export default function PostForm({
     setErrorMsg(null)
 
     try {
-      const cropped = await buildCroppedFile(cropTarget.itemUrl, croppedAreaPixels, `${cropTarget.itemId}.jpg`)
+      const cropped = await buildCroppedFile(cropTarget.itemUrl, coordinates, `${cropTarget.itemId}.jpg`)
       const optimized = await ensureFileWithinBudget(cropped)
       const nextItemId = buildGalleryItemId('new')
       const nextItem: GalleryItem = {
@@ -812,10 +815,7 @@ export default function PostForm({
         })
       })
 
-      setCropTarget(null)
-      setCrop({ x: 0, y: 0 })
-      setCropZoom(1)
-      setCroppedAreaPixels(null)
+      closeCropTarget()
     } catch (error) {
       setErrorMsg(error instanceof Error ? error.message : 'No se pudo recortar la imagen.')
     } finally {
@@ -1601,66 +1601,14 @@ export default function PostForm({
         </div>
 
         {cropTarget ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 px-4">
-            <div className="w-full max-w-xl rounded-2xl border border-(--line) bg-(--background-elevated) p-4 sm:p-5">
-              <p className="text-base font-semibold text-foreground">Recortar y reencuadrar imagen</p>
-              <p className="mt-1 text-xs text-(--foreground-muted)">Ajusta el encuadre y zoom para mejorar la portada.</p>
-
-              <div className="relative mt-3 aspect-square w-full overflow-hidden rounded-xl bg-black">
-                <Cropper
-                  image={cropTarget.itemUrl}
-                  crop={crop}
-                  zoom={cropZoom}
-                  minZoom={0.25}
-                  objectFit="contain"
-                  aspect={1}
-                  onCropChange={setCrop}
-                  onZoomChange={setCropZoom}
-                  onCropComplete={handleCropComplete}
-                />
-              </div>
-
-              <div className="mt-3">
-                <label className="flex flex-col gap-1">
-                  <span className="text-xs text-(--foreground-muted)">Zoom</span>
-                  <input
-                    type="range"
-                    min={0.25}
-                    max={3}
-                    step={0.01}
-                    value={cropZoom}
-                    onChange={(event) => setCropZoom(Number(event.target.value))}
-                  />
-                </label>
-              </div>
-
-              <div className="mt-4 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-                <button
-                  type="button"
-                  className="thsj-btn thsj-btn-ghost"
-                  onClick={() => {
-                    setCropTarget(null)
-                    setCrop({ x: 0, y: 0 })
-                    setCropZoom(1)
-                    setCroppedAreaPixels(null)
-                  }}
-                  disabled={applyingCrop}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="button"
-                  className="thsj-btn thsj-btn-primary"
-                  onClick={() => {
-                    void applyCropOnCurrentImage()
-                  }}
-                  disabled={applyingCrop}
-                >
-                  {applyingCrop ? 'Aplicando...' : 'Aplicar recorte'}
-                </button>
-              </div>
-            </div>
-          </div>
+          <ImageCropModal
+            imageUrl={cropTarget.itemUrl}
+            applying={applyingCrop}
+            onApply={(coordinates) => {
+              void applyCropOnCurrentImage(coordinates)
+            }}
+            onCancel={closeCropTarget}
+          />
         ) : null}
 
         {errorMsg ? (

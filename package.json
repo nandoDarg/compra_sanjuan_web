@@ -26,8 +26,8 @@
     "pg": "^8.22.0",
     "posthog-js": "^1.376.6",
     "react": "19.2.4",
+    "react-advanced-cropper": "^0.20.1",
     "react-dom": "19.2.4",
-    "react-easy-crop": "^5.5.7",
     "resend": "^6.16.0"
   },
   "devDependencies": {
