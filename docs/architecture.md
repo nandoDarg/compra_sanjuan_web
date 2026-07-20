@@ -1,6 +1,6 @@
 # Arquitectura actual
 
-Ultima actualizacion: Junio 2026.
+Ultima actualizacion: 2026-07-20.
 
 ## Stack
 
@@ -48,7 +48,8 @@ La proteccion se resuelve en `AppShell` con whitelist de rutas publicas y matche
 ## Flujo de imagenes
 
 - Carga local de multiples imagenes desde formulario (maximo 10).
-- Compresion cliente para mantener cada imagen en <= 2.5 MB.
+- Editor de recorte libre (`react-advanced-cropper`, rama `feature/editor-recorte-libre-imagenes` sin mergear aun): se abre automaticamente por cada foto agregada (en cola si se agregan varias juntas), marco redimensionable sobre imagen fija, selector Libre/1:1/Original. Componentes: `src/components/ui/image-crop-modal.tsx`, `src/hooks/use-image-crop-queue.ts`.
+- Compresion cliente para mantener cada imagen en <= 2.5 MB (`ensureFileWithinBudget` en `src/components/post-form.tsx`, corre tanto sobre el archivo original como sobre el resultado del recorte).
 - Carga a Supabase Storage (`post-images`) y persistencia de orden en `post_images`.
 - En edicion:
 	- se pueden quitar imagenes ya persistidas
@@ -78,6 +79,17 @@ La proteccion se resuelve en `AppShell` con whitelist de rutas publicas y matche
 	- fuzzy matching (Levenshtein, max 2)
 	- expansion por sinonimos semanticos
 - La consulta final usa OR por termino expandido sobre `title`, `description` y `subcategory` cuando aplica.
+
+## Reputacion bidireccional
+
+- Tablas `public.operations` (una por par comprador/vendedor/publicacion, RLS solo para participantes) y `public.operation_ratings` (RLS de lectura publica, escritura solo del participante correcto de una operacion ya confirmada).
+- RPCs `security definer`: `confirm_operation`, `expire_stale_operations`, `get_profile_reputation`.
+- Helpers cliente en `src/lib/operations.ts`, configuracion de tiempos/labels en `src/lib/reputation-config.ts`, hook compartido `src/lib/use-pending-operations.ts` (fuente unica para el badge del navbar y `/mis-operaciones`).
+
+## Flujo de ramas y migraciones (proceso, no codigo de la app)
+
+- Git flow simplificado activo: `main` protegido, features/fixes riesgosos van por `feature/<nombre>` + PR + Preview Deployment de Vercel antes de mergear. Fixes ya probados y de bajo riesgo pueden ir directo a `main`. Detalle en `README.md`.
+- Migraciones SQL (`docs/sql/*.sql`) se aplican con `npm run db:migrate` (ver `docs/database.md`), con tabla de control `public._migrations` en la base — reemplaza el copy/paste manual como metodo preferido.
 
 ## Analytics y observabilidad funcional
 

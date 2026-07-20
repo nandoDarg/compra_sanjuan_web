@@ -1,17 +1,18 @@
 # Features implementadas
 
-Ultima actualizacion: Junio 2026.
+Ultima actualizacion: 2026-07-20.
 
 ## Marketplace publico
 
 - Feed de publicaciones publico (`/`).
 - Vista detalle publica (`/post/[id]`).
 - Busqueda por texto con fallback para evitar resultado vacio.
-- Busqueda fuzzy + expansion semantica de sinonimos (cliente/API layer antes de query Supabase).
+- Busqueda fuzzy + expansion semantica de sinonimos, incluyendo expansion conceptual marca/modelo → categoria (ej. "celu" encuentra iPhone/Samsung, "camioneta" encuentra Hilux/Ranger) (cliente/API layer antes de query Supabase).
 - Filtros por categoria y orden.
-- Filtros jerarquicos por categoria principal y subcategoria (mobile y desktop).
+- Filtros jerarquicos por categoria principal, subcategoria y subcategoria terciaria (mobile y desktop, con paridad de drill-down entre ambos).
 - Related posts por categoria en detalle.
 - Sugerencias y ranking local por historial/interacciones en busqueda.
+- Favoritos (`/favoritos`), con conteo agregado publico via RPC `get_post_favorite_counts` (RLS de `favorites` es owner-only, el conteo se expone sin filtrar por usuario).
 
 ## Autenticacion
 
@@ -34,6 +35,7 @@ Ultima actualizacion: Junio 2026.
 - UX de imagenes simplificada tipo marketplace:
 	- miniaturas en grilla
 	- boton de cierre para quitar en un click
+- Editor de recorte libre estilo galeria nativa Android/iOS (marco redimensionable arrastrando bordes/esquinas, imagen fija, zoom/pan multitactil, selector Libre/1:1/Original), se abre automaticamente al agregar cada foto — en rama `feature/editor-recorte-libre-imagenes`, pendiente de mergear a `main`.
 
 ## Modulo de vehiculos
 
@@ -70,8 +72,17 @@ Ultima actualizacion: Junio 2026.
 ## Contacto y conversion
 
 - Campo `whatsapp_number` por publicacion.
-- Boton WhatsApp en detalle con mensaje precargado.
+- Boton WhatsApp en detalle con mensaje precargado. Requiere login (redirige a `/login?next=...` si no hay sesion).
 - Boton compartir con Web Share API y fallback a copiar URL.
+
+## Reputacion bidireccional comprador/vendedor
+
+- Al contactar por WhatsApp se crea una "operacion" (`public.operations`) entre comprador y vendedor.
+- A partir de los 5 dias del contacto, cualquiera de las dos partes puede confirmar desde `/mis-operaciones` que la operacion se concreto. Recien cuando ambas confirman, la operacion queda habilitada para calificar.
+- Calificacion: 1-5 estrellas + 3 aspectos + comentario opcional, publico y visible en el perfil del calificado.
+- Promedio y conteo de calificaciones visibles en el detalle de cada publicacion del vendedor.
+- Operaciones sin resolver expiran automaticamente a los 15 dias.
+- Archivos: `src/lib/operations.ts`, `src/lib/reputation-config.ts`, `src/app/mis-operaciones/page.tsx`. SQL: `docs/sql/20260715_operations_reputation.sql`.
 
 ## Analytics
 
@@ -98,6 +109,5 @@ Ultima actualizacion: Junio 2026.
 - Chat interno.
 - Realtime.
 - Notificaciones.
-- Reputacion.
 - Pagos.
 - IA.

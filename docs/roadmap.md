@@ -1,21 +1,25 @@
 # Roadmap de continuidad
 
-Ultima actualizacion: Junio 2026.
+Ultima actualizacion: 2026-07-20.
 
 ## Estado actual
 
 - MVP web en produccion, funcional y validado end-to-end.
-- Deploy oficial en Vercel sobre `nandoDarg/compra_sanjuan_web`.
+- Deploy oficial en Vercel sobre `nandoDarg/compra_sanjuan_web`, con flujo de ramas + Pull Requests + Preview Deployments ya en uso (ver `README.md`).
 - Exploracion publica habilitada para marketplace (`/` y `/post/[id]`).
 - Gestion de publicaciones autenticada (`/create-post`, `/my-posts`, `/my-posts/[id]/edit`).
-- Contacto vendedor por WhatsApp implementado.
-- Busqueda semantica/fuzzy activa (normalizacion + sinonimos + Levenshtein <= 2).
+- Contacto vendedor por WhatsApp implementado, con login obligatorio antes de contactar.
+- **Sistema de reputacion bidireccional** implementado y en produccion: confirmacion mutua de operacion + calificacion 1-5 estrellas con comentario publico opcional (`/mis-operaciones`). Ver `docs/database.md` seccion 3d.
+- **Favoritos** implementados (`/favoritos`, conteo agregado publico via RPC). Ver `docs/database.md` seccion 3b.
+- Busqueda semantica/fuzzy activa (normalizacion + sinonimos + Levenshtein <= 2 + expansion conceptual marca/modelo → categoria).
 - Multi-imagen completo (crear/editar/detalle) con limites y compresion.
+- **Editor de recorte de imagenes libre estilo galeria nativa** (marco redimensionable, no imagen-dentro-de-marco-fijo) — implementado en rama `feature/editor-recorte-libre-imagenes`, pendiente de mergear (ver `docs/contexto-continuacion-ia.md`).
 - Flujo de importacion por URL publica/Google Drive habilitado.
 - Modulo de vehiculos en produccion de codigo (ficha tecnica + render en detalle).
 - Instrumentacion de analytics con PostHog activa.
-- Taxonomia jerarquica implementada en frontend (categoria principal + subcategoria).
+- Taxonomia jerarquica implementada en frontend (categoria principal + subcategoria + terciaria), con drill-down tambien en mobile (paridad con desktop).
 - Filtros jerarquicos desplegables en feed (mobile y desktop), con toggle abrir/cerrar.
+- Herramienta semi-automatica de migraciones SQL (`npm run db:migrate`) — ya no se aplica todo a mano.
 
 ## Fase actual - Validacion real de mercado
 
@@ -33,7 +37,6 @@ Objetivo: conseguir uso real y aprender del comportamiento de usuarios.
 
 ## Fase siguiente (despues de feedback real)
 
-- Favoritos.
 - Notificaciones simples.
 - Afinar taxonomia de categorias segun datos reales de busqueda/publicacion.
 - Moderacion basica/reportes.
@@ -59,14 +62,12 @@ Estado:
 
 ## Pendientes tecnicos inmediatos
 
-1. Ejecutar/validar SQL completo de `docs/database.md` en Supabase (si falta `vehicle_details` o politicas nuevas).
-2. Ejecutar `docs/sql/20260609_posts_subcategory.sql` en cualquier entorno que aun no tenga `posts.subcategory`.
-2. Correr prueba E2E manual de flujo vehiculo:
-	- crear
-	- editar (incluyendo quitar imagenes existentes)
-	- visualizar detalle con ficha tecnica
+Detalle completo y con contexto en `docs/contexto-continuacion-ia.md`. Resumen:
+
+1. Arreglar el Preview Deployment de Vercel roto por variables de entorno (`NEXT_PUBLIC_SUPABASE_URL`/`NEXT_PUBLIC_SUPABASE_ANON_KEY`) faltantes en el entorno Preview, y mergear `feature/editor-recorte-libre-imagenes` una vez validado.
+2. Borrar ramas ya mergeadas a `main` que no se vayan a reusar (`feature/reputacion-bidireccional`, `feature/migraciones-sql-semiautomaticas`).
 3. Verificar eventos de PostHog en ambiente de produccion.
-4. Medir precision de busqueda fuzzy/semantica y ajustar sinonimos en `src/lib/search/synonym-map.ts`.
+4. Medir precision de busqueda fuzzy/semantica y ajustar sinonimos en `src/lib/search/synonym-map.ts` con datos reales de uso.
 
 ## Primera lista de tareas para proxima sesion
 
